@@ -1,0 +1,27 @@
+# Build
+bin/
+obj/
+
+# User
+*.user
+*.swp
+*.suo
+*.userprefs
+
+# IDE
+.vs/
+.idea/
+*.DotSettings
+
+# Logs
+*.log
+snmp-log.txt
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Others
+launchSettings.json
+publish/
+Build/

@@ -16,11 +16,13 @@ public class MainForm : Form
     private readonly Button _refreshButton;
     private bool _busy;
     private readonly MenuStrip _menu;
+    private readonly bool _combined;
 
-    public MainForm(SwitchMonitor monitor, int pollSeconds)
+    public MainForm(SwitchMonitor monitor, int pollSeconds, bool combined=false)
     {
         _monitor = monitor;
         _pollSeconds = pollSeconds;
+        _combined = combined;
         Text = "Switch Trafikk";
         Width = 1200;
         Height = 700;
@@ -78,15 +80,19 @@ public class MainForm : Form
     var editItem = new ToolStripMenuItem("Endre...");
     var testItem = new ToolStripMenuItem("Test SNMP");
     var diagItem = new ToolStripMenuItem("Diagnose...");
+    // Fjernet eget SNMP Query testvindu (testfil fjernet)
     cfgItem.DropDownItems.Add(editItem);
     cfgItem.DropDownItems.Add(testItem);
     cfgItem.DropDownItems.Add(new ToolStripSeparator());
     cfgItem.DropDownItems.Add(diagItem);
+    cfgItem.DropDownItems.Add(new ToolStripSeparator());
+    // queryItem fjernet
     _menu.Items.Add(cfgItem);
 
     editItem.Click += async (s,e) => await ShowConfigAsync();
     testItem.Click += async (s,e) => await TestCurrentAsync();
     diagItem.Click += async (s,e) => await DiagnoseAsync();
+    // queryItem.Click fjernet
 
     Controls.Add(_grid);
     Controls.Add(_refreshButton);
@@ -110,6 +116,8 @@ public class MainForm : Form
         await RefreshDataAsync();
         _uiTimer.Start();
     _autoTimer.Start();
+        // Ekstra poll etter kort delay for å få med eventuelle første SNMP timeouts i logg
+        _ = Task.Run(async () => { await Task.Delay(2000); await RefreshDataAsync(); });
     }
 
     private void InitColumns()
@@ -121,8 +129,15 @@ public class MainForm : Form
     _grid.Columns.Add("IfName", "Interface");
         _grid.Columns.Add("Status", "Status");
     _grid.Columns.Add("SpeedLabel", "Speed");
-        _grid.Columns.Add("InBps", "In (bps)");
-        _grid.Columns.Add("OutBps", "Out (bps)");
+        if (_combined)
+        {
+            _grid.Columns.Add("Traffic", "In|Out (bps)");
+        }
+        else
+        {
+            _grid.Columns.Add("InBps", "In (bps)");
+            _grid.Columns.Add("OutBps", "Out (bps)");
+        }
         _grid.Columns.Add("UtilIn", "Util In %");
         _grid.Columns.Add("UtilOut", "Util Out %");
         _grid.Columns.Add("LastUpdated", "Last Seen");
@@ -141,12 +156,18 @@ public class MainForm : Form
             BindGrid(snaps);
             var errors = snaps.Count(s => s.Status == "ERR");
             _statusLabel.Text = $"Sist {(manual?"manuell":"auto")} oppdatert: {DateTime.Now:HH:mm:ss}  Rader: {snaps.Count}  Feil: {errors}";
+            if (snaps.Count == 0)
+            {
+                _statusLabel.Text += " | Ingen data – sjekk Diagnose";
+                AppLogger.Warn("Poll ga 0 snapshots");
+            }
         }
         catch (Exception ex)
         {
             // show minimal error status in title
             Text = $"Switch Trafikk - feil: {ex.Message}";
             _statusLabel.Text = ex.Message;
+            AppLogger.Exception("RefreshData", ex);
         }
         finally
         {
@@ -162,7 +183,7 @@ public class MainForm : Form
         if (dlg.ShowDialog(this) == DialogResult.OK && dlg.Result != null)
         {
             var r = dlg.Result;
-            _monitor.UpdateConfiguration(r.Poll, r.MaxIf, r.UseIfXTable, r.Switches);
+            _monitor.UpdateConfiguration(r.Poll, r.MaxIf, r.UseIfXTable, r.Switches, r.TimeoutMs, r.Retries);
             _statusLabel.Text = "Lagret ny konfigurasjon";
             await RefreshDataAsync(manual:true);
             // Persist to file
@@ -241,6 +262,8 @@ public class MainForm : Form
                 PollIntervalSeconds = r.Poll,
                 MaxInterfaces = r.MaxIf,
                 UseIfXTable = r.UseIfXTable,
+                SnmpTimeoutMs = r.TimeoutMs,
+                SnmpRetries = r.Retries,
                 Switches = r.Switches
             }, new System.Text.Json.JsonSerializerOptions{WriteIndented=true});
             File.WriteAllText(path, json);
@@ -257,21 +280,40 @@ public class MainForm : Form
         _grid.Rows.Clear();
         foreach (var s in snaps.OrderBy(x => x.SwitchName).ThenBy(x => x.IfIndex))
         {
-            var idx = _grid.Rows.Add(
-                s.SwitchName,
-                s.SwitchIp,
-                s.IfIndex,
-                s.IfName,
-                s.Status,
-                FormatSpeedShort(s.SpeedLabel),
-                FormatBps(s.InBps),
-                FormatBps(s.OutBps),
-                s.UtilInPercent.ToString("0.0"),
-                s.UtilOutPercent.ToString("0.0"),
-                s.Timestamp.ToLocalTime().ToString("HH:mm:ss")
-            );
+            int idx;
+            if (_combined)
+            {
+                idx = _grid.Rows.Add(
+                    s.SwitchName,
+                    s.SwitchIp,
+                    s.IfIndex,
+                    s.IfName,
+                    s.Status,
+                    FormatSpeedShort(s.SpeedLabel),
+                    $"{FormatBps(s.InBps)}/{FormatBps(s.OutBps)}",
+                    s.UtilInPercent.ToString("0.0"),
+                    s.UtilOutPercent.ToString("0.0"),
+                    s.Timestamp.ToLocalTime().ToString("HH:mm:ss")
+                );
+            }
+            else
+            {
+                idx = _grid.Rows.Add(
+                    s.SwitchName,
+                    s.SwitchIp,
+                    s.IfIndex,
+                    s.IfName,
+                    s.Status,
+                    FormatSpeedShort(s.SpeedLabel),
+                    FormatBps(s.InBps),
+                    FormatBps(s.OutBps),
+                    s.UtilInPercent.ToString("0.0"),
+                    s.UtilOutPercent.ToString("0.0"),
+                    s.Timestamp.ToLocalTime().ToString("HH:mm:ss")
+                );
+            }
             var row = _grid.Rows[idx];
-            if (s.Status == "ERR")
+            if (s.Status == "ERR" || s.Status == "TIMEOUT" || s.Status == "AUTH" || s.Status == "SOCKET" || s.Status == "NOSUCH" || s.Status == "REFUSED")
             {
                 row.DefaultCellStyle.BackColor = Color.DarkRed;
                 row.DefaultCellStyle.ForeColor = Color.White;

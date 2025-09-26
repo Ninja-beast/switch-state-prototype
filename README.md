@@ -103,12 +103,25 @@ Forklaring:
 ### Vanlige Aruba OIDs
 | Beskrivelse | OID |
 |-------------|-----|
-| sysName | 1.3.6.1.2.1.1.5.0 |
 | sysDescr | 1.3.6.1.2.1.1.1.0 |
+| sysObjectID | 1.3.6.1.2.1.1.2.0 |
+| sysUpTime | 1.3.6.1.2.1.1.3.0 |
+| sysContact | 1.3.6.1.2.1.1.4.0 |
+| sysName | 1.3.6.1.2.1.1.5.0 |
+| sysLocation | 1.3.6.1.2.1.1.6.0 |
 | ifNumber | 1.3.6.1.2.1.2.1.0 |
-| ifInOctets (idx N) | 1.3.6.1.2.1.2.2.1.10.N |
-| ifHCInOctets (idx N) | 1.3.6.1.2.1.31.1.1.1.6.N |
 | ifDescr (idx N) | 1.3.6.1.2.1.2.2.1.2.N |
+| ifType (idx N) | 1.3.6.1.2.1.2.2.1.3.N |
+| ifMtu (idx N) | 1.3.6.1.2.1.2.2.1.4.N |
+| ifSpeed (idx N) | 1.3.6.1.2.1.2.2.1.5.N |
+| ifPhysAddress (idx N) | 1.3.6.1.2.1.2.2.1.6.N |
+| ifAdminStatus (idx N) | 1.3.6.1.2.1.2.2.1.7.N |
+| ifOperStatus (idx N) | 1.3.6.1.2.1.2.2.1.8.N |
+| ifInOctets (idx N) | 1.3.6.1.2.1.2.2.1.10.N |
+| ifOutOctets (idx N) | 1.3.6.1.2.1.2.2.1.16.N |
+| ifHCInOctets (idx N) | 1.3.6.1.2.1.31.1.1.1.6.N |
+| ifHCOutOctets (idx N) | 1.3.6.1.2.1.31.1.1.1.10.N |
+| Custom47196 (enterprise) | 1.3.6.1.4.1.47196.4.1.1.3.17 |
 
 ## Videre forbedringer (idéer)
 - Multi-switch visning i samme grid

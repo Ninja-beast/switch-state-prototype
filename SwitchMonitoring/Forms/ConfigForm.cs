@@ -12,13 +12,15 @@ public class ConfigForm : Form
     private readonly NumericUpDown _numPoll = new(){Minimum=2, Maximum=3600, Value=30, Width=100};
     private readonly NumericUpDown _numMaxIf = new(){Minimum=1, Maximum=4096, Value=10, Width=100};
     private readonly CheckBox _chkIfX = new(){Text="Bruk ifX (64-bit)"};
+    private readonly NumericUpDown _numTimeout = new(){Minimum=200, Maximum=10000, Increment=100, Value=2000, Width=100};
+    private readonly NumericUpDown _numRetries = new(){Minimum=1, Maximum=10, Value=3, Width=100};
     private readonly Button _btnTest = new(){Text="Test SNMP"};
     private readonly Button _btnDiag = new(){Text="Diagnose"};
     private readonly Button _btnSave = new(){Text="Lagre"};
     private readonly Label _lblResult = new(){AutoSize=true, ForeColor=Color.LightGray};
     private List<SwitchInfo> _current;
 
-    public record ResultConfig(List<SwitchInfo> Switches,int Poll,int MaxIf,bool UseIfXTable);
+    public record ResultConfig(List<SwitchInfo> Switches,int Poll,int MaxIf,bool UseIfXTable,int TimeoutMs,int Retries);
 
     public ResultConfig? Result { get; private set; }
 
@@ -36,7 +38,7 @@ public class ConfigForm : Form
         ForeColor = Color.Gainsboro;
         Font = new Font("Segoe UI",9F);
 
-    var layout = new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=2,RowCount=12,Padding=new Padding(10),AutoSize=true};
+    var layout = new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=2,RowCount=16,Padding=new Padding(10),AutoSize=true};
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));
 
@@ -46,10 +48,12 @@ public class ConfigForm : Form
         AddRow(layout,"Poll (s):", _numPoll);
         AddRow(layout,"Max Interfaces:", _numMaxIf);
         AddRow(layout,"", _chkIfX);
-    layout.Controls.Add(_btnTest,0,6); layout.SetColumnSpan(_btnTest,2);
-    layout.Controls.Add(_btnDiag,0,7); layout.SetColumnSpan(_btnDiag,2);
-    layout.Controls.Add(_btnSave,0,8); layout.SetColumnSpan(_btnSave,2);
-    layout.Controls.Add(_lblResult,0,9); layout.SetColumnSpan(_lblResult,2);
+        AddRow(layout,"SNMP Timeout (ms):", _numTimeout);
+        AddRow(layout,"SNMP Retries:", _numRetries);
+    layout.Controls.Add(_btnTest,0,8); layout.SetColumnSpan(_btnTest,2);
+    layout.Controls.Add(_btnDiag,0,9); layout.SetColumnSpan(_btnDiag,2);
+    layout.Controls.Add(_btnSave,0,10); layout.SetColumnSpan(_btnSave,2);
+    layout.Controls.Add(_lblResult,0,11); layout.SetColumnSpan(_lblResult,2);
 
         Controls.Add(layout);
 
@@ -66,6 +70,8 @@ public class ConfigForm : Form
             _numPoll.Value = Math.Clamp(_monitor.GetPollInterval(), (int)_numPoll.Minimum, (int)_numPoll.Maximum);
             _numMaxIf.Value = Math.Clamp(_monitor.GetMaxInterfaces(), (int)_numMaxIf.Minimum, (int)_numMaxIf.Maximum);
             _chkIfX.Checked = _monitor.GetUseIfXTable();
+            _numTimeout.Value = Math.Clamp(_monitor.GetSnmpTimeoutMs(), (int)_numTimeout.Minimum, (int)_numTimeout.Maximum);
+            _numRetries.Value = Math.Clamp(_monitor.GetSnmpRetries(), (int)_numRetries.Minimum, (int)_numRetries.Maximum);
         }
         catch { }
 
@@ -95,7 +101,7 @@ public class ConfigForm : Form
     private void SaveAndClose()
     {
         var list = new List<SwitchInfo>{ new(){ Name=_txtName.Text.Trim(), IPAddress=_txtIp.Text.Trim(), Community=_txtCommunity.Text.Trim() } };
-        Result = new ResultConfig(list,(int)_numPoll.Value,(int)_numMaxIf.Value,_chkIfX.Checked);
+        Result = new ResultConfig(list,(int)_numPoll.Value,(int)_numMaxIf.Value,_chkIfX.Checked,(int)_numTimeout.Value,(int)_numRetries.Value);
         DialogResult = DialogResult.OK;
         Close();
     }

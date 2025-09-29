@@ -4,32 +4,36 @@ using SwitchMonitoring.Models;
 
 namespace SwitchMonitoring.Forms;
 
+// Main window for the Switch Monitoring application
 public class MainForm : Form
 {
-    private readonly SwitchMonitor _monitor;
-    private readonly System.Windows.Forms.Timer _uiTimer;
-    private readonly System.Windows.Forms.Timer _autoTimer;
-    private readonly DataGridView _grid;
-    private readonly int _pollSeconds;
-    private List<InterfaceSnapshot> _lastSnapshots = new();
-    private readonly Label _statusLabel;
-    private readonly Button _refreshButton;
-    private bool _busy;
-    private readonly MenuStrip _menu;
-    private readonly bool _combined;
+    // Fields
+    private readonly SwitchMonitor _monitor; // The switch monitor service
+    private readonly System.Windows.Forms.Timer _uiTimer; // Timer for updating UI
+    private readonly System.Windows.Forms.Timer _autoTimer; // Timer for periodic updates
+    private readonly DataGridView _grid; // Table/grid for data display
+    private readonly int _pollSeconds; // Polling interval in seconds
+    private List<InterfaceSnapshot> _lastSnapshots = new(); // Last polled data
+    private readonly Label _statusLabel; // Status display at the bottom
+    private readonly Button _refreshButton; // Manual refresh button
+    private bool _busy; // Busy flag to avoid concurrent actions
+    private readonly MenuStrip _menu; // Top menu bar
+    private readonly bool _combined; // Whether to show combined traffic
 
+    // Constructor
     public MainForm(SwitchMonitor monitor, int pollSeconds, bool combined=false)
     {
         _monitor = monitor;
         _pollSeconds = pollSeconds;
         _combined = combined;
-        Text = "Switch Trafikk";
+        Text = "Switch Traffic";
         Width = 1200;
         Height = 700;
         BackColor = Color.FromArgb(30,30,34);
         ForeColor = Color.Gainsboro;
         Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point);
 
+        // Configure DataGridView
         _grid = new DataGridView
         {
             Dock = DockStyle.Fill,
@@ -44,7 +48,6 @@ public class MainForm : Form
             MultiSelect = false,
             AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill
         };
-
         _grid.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(55,55,62);
         _grid.ColumnHeadersDefaultCellStyle.ForeColor = Color.White;
         _grid.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9F, FontStyle.Bold, GraphicsUnit.Point);
@@ -53,6 +56,7 @@ public class MainForm : Form
         _grid.DefaultCellStyle.ForeColor = Color.Gainsboro;
         _grid.DefaultCellStyle.SelectionForeColor = Color.White;
 
+        // Status label at the bottom
         _statusLabel = new Label
         {
             Dock = DockStyle.Bottom,
@@ -63,9 +67,10 @@ public class MainForm : Form
             BackColor = Color.FromArgb(25,25,28)
         };
 
+        // Manual refresh button
         _refreshButton = new Button
         {
-            Text = "Oppdater nå",
+            Text = "Update now",
             Dock = DockStyle.Top,
             Height = 30,
             FlatStyle = FlatStyle.Flat,
@@ -75,71 +80,78 @@ public class MainForm : Form
         _refreshButton.FlatAppearance.BorderSize = 0;
         _refreshButton.Click += async (s,e) => await ManualRefreshAsync();
 
-    _menu = new MenuStrip{Dock=DockStyle.Top, BackColor=Color.FromArgb(45,45,50), ForeColor=Color.White};
-    var cfgItem = new ToolStripMenuItem("Configuration");
-    var editItem = new ToolStripMenuItem("Edit...");
-    var testItem = new ToolStripMenuItem("Test SNMP");
-    var diagItem = new ToolStripMenuItem("Diagnosis...");
-    var commTestItem = new ToolStripMenuItem("Test communities...");
-    var snmpPingItem = new ToolStripMenuItem("SNMP Ping...");
-    var listIfItem = new ToolStripMenuItem("List porter...");
-    var graphItem = new ToolStripMenuItem("Graph for selected port");
-    // Fjernet eget SNMP Query testvindu (testfil fjernet)
-    cfgItem.DropDownItems.Add(editItem);
-    cfgItem.DropDownItems.Add(testItem);
-    cfgItem.DropDownItems.Add(new ToolStripSeparator());
-    cfgItem.DropDownItems.Add(snmpPingItem);
-    cfgItem.DropDownItems.Add(listIfItem);
-    cfgItem.DropDownItems.Add(new ToolStripSeparator());
-    cfgItem.DropDownItems.Add(diagItem);
-    cfgItem.DropDownItems.Add(commTestItem);
-    cfgItem.DropDownItems.Add(new ToolStripSeparator());
-    cfgItem.DropDownItems.Add(graphItem);
-    // queryItem fjernet
-    _menu.Items.Add(cfgItem);
+        // Menu bar
+        _menu = new MenuStrip{Dock=DockStyle.Top, BackColor=Color.FromArgb(45,45,50), ForeColor=Color.White};
+        var cfgItem = new ToolStripMenuItem("Configuration");
+        var editItem = new ToolStripMenuItem("Edit...");
+        var testItem = new ToolStripMenuItem("Test SNMP");
+        var diagItem = new ToolStripMenuItem("Diagnosis...");
+        var commTestItem = new ToolStripMenuItem("Test communities...");
+        var snmpPingItem = new ToolStripMenuItem("SNMP Ping...");
+        var listIfItem = new ToolStripMenuItem("List ports...");
+        var graphItem = new ToolStripMenuItem("Graph for selected port");
+        // Removed SNMP Query test window
 
-    editItem.Click += async (s,e) => await ShowConfigAsync();
-    testItem.Click += async (s,e) => await TestCurrentAsync();
-    diagItem.Click += async (s,e) => await DiagnoseAsync();
-    commTestItem.Click += async (s,e) => await TestCommunitiesAsync();
-    snmpPingItem.Click += async (s,e) => await SnmpPingAsync();
-    listIfItem.Click += async (s,e) => await ListInterfacesAsync();
-    graphItem.Click += (s,e) => OpenGraphForSelected();
-    // Eget historikk toppnivå meny
-    var histMenu = new ToolStripMenuItem("History");
-    var histOpenItem = new ToolStripMenuItem("History graph of selected port...");
-    histOpenItem.Click += (s,e) => OpenHistoricalGraphForSelected();
-    histMenu.DropDownItems.Add(histOpenItem);
-    _menu.Items.Add(histMenu);
-    // queryItem.Click fjernet
+        // Add menu items
+        cfgItem.DropDownItems.Add(editItem);
+        cfgItem.DropDownItems.Add(testItem);
+        cfgItem.DropDownItems.Add(new ToolStripSeparator());
+        cfgItem.DropDownItems.Add(snmpPingItem);
+        cfgItem.DropDownItems.Add(listIfItem);
+        cfgItem.DropDownItems.Add(new ToolStripSeparator());
+        cfgItem.DropDownItems.Add(diagItem);
+        cfgItem.DropDownItems.Add(commTestItem);
+        cfgItem.DropDownItems.Add(new ToolStripSeparator());
+        cfgItem.DropDownItems.Add(graphItem);
+        _menu.Items.Add(cfgItem);
 
-    Controls.Add(_grid);
-    Controls.Add(_refreshButton);
-    Controls.Add(_statusLabel);
-    Controls.Add(_menu);
-    MainMenuStrip = _menu;
-    KeyPreview = true;
+        // Hook up menu actions
+        editItem.Click += async (s,e) => await ShowConfigAsync();
+        testItem.Click += async (s,e) => await TestCurrentAsync();
+        diagItem.Click += async (s,e) => await DiagnoseAsync();
+        commTestItem.Click += async (s,e) => await TestCommunitiesAsync();
+        snmpPingItem.Click += async (s,e) => await SnmpPingAsync();
+        listIfItem.Click += async (s,e) => await ListInterfacesAsync();
+        graphItem.Click += (s,e) => OpenGraphForSelected();
+
+        // History menu
+        var histMenu = new ToolStripMenuItem("History");
+        var histOpenItem = new ToolStripMenuItem("History graph of selected port...");
+        histOpenItem.Click += (s,e) => OpenHistoricalGraphForSelected();
+        histMenu.DropDownItems.Add(histOpenItem);
+        _menu.Items.Add(histMenu);
+
+        // Add controls to the form
+        Controls.Add(_grid);
+        Controls.Add(_refreshButton);
+        Controls.Add(_statusLabel);
+        Controls.Add(_menu);
+        MainMenuStrip = _menu;
+        KeyPreview = true;
         InitColumns();
 
-    _uiTimer = new System.Windows.Forms.Timer();
-    _uiTimer.Interval = _pollSeconds * 1000; // hyppig for løpende rate
-    _uiTimer.Tick += async (s,e) => await RefreshDataAsync();
+        // Timers for polling and UI updating
+        _uiTimer = new System.Windows.Forms.Timer();
+        _uiTimer.Interval = _pollSeconds * 1000; // Frequent for continuous rate
+        _uiTimer.Tick += async (s,e) => await RefreshDataAsync();
 
-    _autoTimer = new System.Windows.Forms.Timer();
-    _autoTimer.Interval = 120_000; // 2 minutter
-    _autoTimer.Tick += async (s,e) => await RefreshDataAsync();
+        _autoTimer = new System.Windows.Forms.Timer();
+        _autoTimer.Interval = 120_000; // 2 minutes
+        _autoTimer.Tick += async (s,e) => await RefreshDataAsync();
     }
 
+    // Called when the form is loaded
     protected override async void OnLoad(EventArgs e)
     {
         base.OnLoad(e);
         await RefreshDataAsync();
         _uiTimer.Start();
-    _autoTimer.Start();
-        // Ekstra poll etter kort delay for å få med eventuelle første SNMP timeouts i logg
+        _autoTimer.Start();
+        // Extra poll after short delay to capture initial SNMP timeouts in the log
         _ = Task.Run(async () => { await Task.Delay(2000); await RefreshDataAsync(); });
     }
 
+    // Keyboard shortcuts
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
     {
         if (keyData == Keys.F5)
@@ -160,19 +172,18 @@ public class MainForm : Form
         return base.ProcessCmdKey(ref msg, keyData);
     }
 
+    // Initialize grid columns
     private void InitColumns()
     {
         _grid.Columns.Clear();
         _grid.Columns.Add("SwitchName", "Switch");
-    _grid.Columns.Add("SwitchIp", "IP");
-    _grid.Columns.Add("IfIndex", "Port");
-    _grid.Columns.Add("IfName", "Interface");
+        _grid.Columns.Add("SwitchIp", "IP");
+        _grid.Columns.Add("IfIndex", "Port");
+        _grid.Columns.Add("IfName", "Interface");
         _grid.Columns.Add("Status", "Status");
-    _grid.Columns.Add("SpeedLabel", "Speed");
+        _grid.Columns.Add("SpeedLabel", "Speed");
         if (_combined)
-        {
             _grid.Columns.Add("Traffic", "In|Out (bps)");
-        }
         else
         {
             _grid.Columns.Add("InBps", "In (bps)");
@@ -183,17 +194,19 @@ public class MainForm : Form
         _grid.Columns.Add("LastUpdated", "Last Seen");
     }
 
+    // Manual refresh method
     private async Task ManualRefreshAsync() => await RefreshDataAsync(manual:true);
 
+    // Data polling and grid updating
     private async Task RefreshDataAsync(bool manual = false)
     {
         if (_busy) return;
-        try { _busy = true; _refreshButton.Enabled = false; _statusLabel.Text = "Oppdaterer..."; } catch { }
+        try { _busy = true; _refreshButton.Enabled = false; _statusLabel.Text = "Updating..."; } catch { }
         try
         {
             var snaps = await _monitor.PollOnceAsync();
             _lastSnapshots = snaps;
-            // Oppdater åpne grafvinduer
+            // Update open graph windows
             foreach (Form f in Application.OpenForms)
             {
                 if (f is PortGraphForm pg)
@@ -205,17 +218,17 @@ public class MainForm : Form
             }
             BindGrid(snaps);
             var errors = snaps.Count(s => s.Status == "ERR");
-            _statusLabel.Text = $"Sist {(manual?"manuell":"auto")} Updated: {DateTime.Now:HH:mm:ss}  Rows: {snaps.Count}  Error: {errors}";
+            _statusLabel.Text = $"Last {(manual?"manual":"auto")} Update: {DateTime.Now:HH:mm:ss}  Rows: {snaps.Count}  Error: {errors}";
             if (snaps.Count == 0)
             {
-                _statusLabel.Text += " | Ingen data – sjekk Diagnose";
-                AppLogger.Warn("Poll ga 0 snapshots");
+                _statusLabel.Text += " | No data – check Diagnosis";
+                AppLogger.Warn("Poll returned 0 snapshots");
             }
         }
         catch (Exception ex)
         {
             // show minimal error status in title
-            Text = $"Switch Trafikk - feil: {ex.Message}";
+            Text = $"Switch Traffic - error: {ex.Message}";
             _statusLabel.Text = ex.Message;
             AppLogger.Exception("RefreshData", ex);
         }
@@ -226,6 +239,7 @@ public class MainForm : Form
         }
     }
 
+    // Configuration dialog
     private async Task ShowConfigAsync()
     {
         if (_busy) return;
@@ -234,47 +248,50 @@ public class MainForm : Form
         {
             var r = dlg.Result;
             _monitor.UpdateConfiguration(r.Poll, r.MaxIf, r.UseIfXTable, r.Switches, r.TimeoutMs, r.Retries);
-            _statusLabel.Text = "Lagret ny konfigurasjon";
+            _statusLabel.Text = "Saved new configuration";
             await RefreshDataAsync(manual:true);
-            // Persist to file
+            // Save settings to file
             PersistSettings(r);
         }
     }
 
+    // Gather current switch list
     private List<SwitchInfo> GetCurrentSwitches()
     {
-        // Bruk den ekte konfigurasjonen fra monitor
+        // Use the real configuration from monitor
         return _monitor.GetSwitches().Select(s => new SwitchInfo{ Name=s.Name, IPAddress=s.IPAddress, Community=s.Community}).ToList();
     }
 
+    // SNMP test on current switch
     private async Task TestCurrentAsync()
     {
         if (_busy) return;
         var sw = _monitor.GetSwitches().FirstOrDefault();
         if (sw == null) return;
-        _statusLabel.Text = "Tester SNMP...";
+        _statusLabel.Text = "Testing SNMP...";
         var (ok,msg) = await _monitor.TestSnmpAsync(sw.IPAddress, sw.Community);
         _statusLabel.Text = msg;
     }
 
+    // Diagnostic check
     private async Task DiagnoseAsync()
     {
         if (_busy) return;
         var sw = _monitor.GetSwitches().FirstOrDefault();
         if (sw == null)
         {
-            MessageBox.Show(this, "Ingen switch er konfigurert.", "Diagnose", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show(this, "No switch is configured.", "Diagnosis", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
         try
         {
-            _statusLabel.Text = "Kjører diagnose...";
+            _statusLabel.Text = "Running diagnosis...";
             var text = await _monitor.TestDiagnosticAsync(sw.IPAddress, sw.Community);
-            _statusLabel.Text = "Diagnose ferdig";
-            // Vis i eget vindu for bedre lesbarhet
+            _statusLabel.Text = "Diagnosis complete";
+            // Show in its own window for better readability
             using var diag = new Form
             {
-                Text = $"Diagnose - {sw.Name} ({sw.IPAddress})",
+                Text = $"Diagnosis - {sw.Name} ({sw.IPAddress})",
                 Width = 620,
                 Height = 480,
                 StartPosition = FormStartPosition.CenterParent,
@@ -297,18 +314,19 @@ public class MainForm : Form
         }
         catch (Exception ex)
         {
-            _statusLabel.Text = "Diagnose feilet";
-            MessageBox.Show(this, ex.Message, "Diagnose feil", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            _statusLabel.Text = "Diagnosis failed";
+            MessageBox.Show(this, ex.Message, "Diagnosis error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
+    // SNMP ping
     private async Task SnmpPingAsync()
     {
         if (_busy) return;
         var sw = _monitor.GetSwitches().FirstOrDefault();
         if (sw == null)
         {
-            MessageBox.Show(this, "Ingen switch er konfigurert.", "SNMP Ping", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show(this, "No switch is configured.", "SNMP Ping", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
         try
@@ -325,6 +343,7 @@ public class MainForm : Form
         }
     }
 
+    // List interfaces/ports of current switch
     private async Task ListInterfacesAsync()
     {
         if (_busy) return;
@@ -341,7 +360,7 @@ public class MainForm : Form
             if (!ok && list.Count == 0)
             {
                 MessageBox.Show(this, err ?? "Unknown error", "Port list", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                _statusLabel.Text = err ?? "Feil";
+                _statusLabel.Text = err ?? "Error";
                 return;
             }
             var sb = new System.Text.StringBuilder();
@@ -349,7 +368,7 @@ public class MainForm : Form
                 sb.AppendLine($"{idx}: {name}");
             using var dlg = new Form
             {
-                Text = $"Porter - {sw.Name}",
+                Text = $"Ports - {sw.Name}",
                 Width = 480,
                 Height = 600,
                 StartPosition = FormStartPosition.CenterParent,
@@ -369,7 +388,7 @@ public class MainForm : Form
             };
             dlg.Controls.Add(tb);
             dlg.ShowDialog(this);
-            _statusLabel.Text = $"Porter fetched: {list.Count}";
+            _statusLabel.Text = $"Ports fetched: {list.Count}";
         }
         catch (Exception ex)
         {
@@ -378,6 +397,7 @@ public class MainForm : Form
         }
     }
 
+    // Test SNMP communities
     private async Task TestCommunitiesAsync()
     {
         if (_busy) return;
@@ -423,6 +443,7 @@ public class MainForm : Form
         }
     }
 
+    // Save config to file
     private void PersistSettings(ConfigForm.ResultConfig r)
     {
         try
@@ -445,13 +466,14 @@ public class MainForm : Form
         }
     }
 
+    // Bind/present snapshot list to grid
     private void BindGrid(List<InterfaceSnapshot> snaps)
     {
         _grid.SuspendLayout();
         _grid.Rows.Clear();
         foreach (var s in snaps.OrderBy(x => x.SwitchName).ThenBy(x => x.IfIndex))
         {
-            var displaySwitch = s.SwitchName; // fjernet visning av (pPORT) etter ønske
+            var displaySwitch = s.SwitchName;
             int idx;
             if (_combined)
             {
@@ -493,7 +515,7 @@ public class MainForm : Form
                 {
                     "TIMEOUT" => "SNMP request timeout (no response within deadline)",
                     "AUTH" => "Authentication error (community / v3 user)",
-                    "SOCKET" => "Socket-feil (network or port unavailable)",
+                    "SOCKET" => "Socket error (network or port unavailable)",
                     "NOSUCH" => "MIB/OID responded with noSuchObject/Instance",
                     "REFUSED" => "Connection refused (port closed / ACL)",
                     _ => "General SNMP error"
@@ -509,6 +531,7 @@ public class MainForm : Form
         _grid.ResumeLayout();
     }
 
+    // Format bits-per-second value with units
     private static string FormatBps(double? bps)
     {
         if (!bps.HasValue) return "-";
@@ -518,6 +541,8 @@ public class MainForm : Form
         if (v >= 1_000) return $"{v/1_000:0.00}K";
         return v.ToString("0");
     }
+
+    // Format speed short string
     private static string FormatSpeedShort(string raw)
     {
         if (double.TryParse(raw, out var sp))
@@ -530,6 +555,7 @@ public class MainForm : Form
         return raw;
     }
 
+    // Open live graph for selected row/port
     private void OpenGraphForSelected()
     {
         if (_grid.SelectedRows.Count == 0) { MessageBox.Show(this, "Select a row first", "Graph", MessageBoxButtons.OK, MessageBoxIcon.Information); return; }
@@ -542,7 +568,7 @@ public class MainForm : Form
             MessageBox.Show(this, "Row lacks valid ifIndex", "Graph", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
-        // Finn eksisterende
+        // Find existing graph window
         foreach (Form f in Application.OpenForms)
         {
             if (f is PortGraphForm pg && pg.Matches(swIp, ifIndex))
@@ -552,13 +578,14 @@ public class MainForm : Form
             }
         }
         var graph = new PortGraphForm(swName, swIp, ifIndex);
-        // Sett initial sample hvis vi har i snapshot-listen
+        // Set initial sample if available
         var snap = _lastSnapshots.FirstOrDefault(s => s.SwitchIp == swIp && s.IfIndex == ifIndex);
         if (snap != null)
             graph.AddSample(DateTime.Now, snap.InBps, snap.OutBps);
         graph.Show(this);
     }
 
+    // Open historical graph for selected row/port
     private void OpenHistoricalGraphForSelected()
     {
         if (_grid.SelectedRows.Count == 0) { MessageBox.Show(this, "Select a row first", "History", MessageBoxButtons.OK, MessageBoxIcon.Information); return; }
@@ -572,7 +599,7 @@ public class MainForm : Form
             return;
         }
         var ifName = row.Cells[3].Value?.ToString() ?? $"if{ifIndex}";
-        // Sjekk eksisterende
+        // Check for existing historical graph window
         foreach (Form f in Application.OpenForms)
         {
             if (f is HistoricalGraphForm hg && hg.Text.Contains(swName) && hg.Text.Contains($"ifIndex={ifIndex}"))

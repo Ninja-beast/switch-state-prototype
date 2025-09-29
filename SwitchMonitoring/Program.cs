@@ -17,30 +17,8 @@ if (!File.Exists(configPath))
 var json = File.ReadAllText(configPath);
 var root = JsonDocument.Parse(json).RootElement;
 int pollInterval = root.GetProperty("PollIntervalSeconds").GetInt32();
-string mode = root.TryGetProperty("Mode", out var modeProp) && modeProp.ValueKind==JsonValueKind.String ? modeProp.GetString()! : (root.TryGetProperty("UseSFlow", out var usf) && usf.GetBoolean() ? "SFlow" : "SNMP");
-int fallbackSeconds = root.TryGetProperty("SFlowFallbackSeconds", out var fbs) && fbs.ValueKind==JsonValueKind.Number ? fbs.GetInt32() : 60;
-int sflowPort = root.TryGetProperty("SFlowPort", out var sfp) ? sfp.GetInt32() : 6343;
-bool sflowDebug = root.TryGetProperty("SFlowDebug", out var sdbg) && sdbg.GetBoolean();
-string? bindIp = root.TryGetProperty("SFlowBindIP", out var bip) ? bip.GetString() : null;
-int dumpFirstN = root.TryGetProperty("SFlowDumpFirstN", out var dfn) && dfn.ValueKind==JsonValueKind.Number ? dfn.GetInt32() : 0;
-bool combined = root.TryGetProperty("ShowCombinedBps", out var scb) && scb.ValueKind==JsonValueKind.True || (scb.ValueKind==JsonValueKind.False && scb.GetBoolean());
+bool combined = root.TryGetProperty("ShowCombinedBps", out var scb) && (scb.ValueKind==JsonValueKind.True || scb.ValueKind==JsonValueKind.False) ? scb.GetBoolean() : false;
 bool showSnmpErr = root.TryGetProperty("ShowSnmpErrorDetails", out var sed) && (sed.ValueKind==JsonValueKind.True || sed.ValueKind==JsonValueKind.False) ? sed.GetBoolean() : false;
-// Last agent mapping (frivillig)
-var agentNameMap = new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase);
-if (root.TryGetProperty("SFlowAgents", out var agentsElem) && agentsElem.ValueKind == JsonValueKind.Array)
-{
-    foreach (var a in agentsElem.EnumerateArray())
-    {
-        if (a.TryGetProperty("IPAddress", out var ipProp) && a.TryGetProperty("Name", out var nProp))
-        {
-            var ip = ipProp.GetString(); var name = nProp.GetString();
-            if (!string.IsNullOrWhiteSpace(ip) && !string.IsNullOrWhiteSpace(name))
-            {
-                agentNameMap[ip!] = name!;
-            }
-        }
-    }
-}
 
 // Alltid initialiser begge, Unified form styrer visning
 int maxIf2 = root.TryGetProperty("MaxInterfaces", out var mi2) && mi2.ValueKind==JsonValueKind.Number ? mi2.GetInt32() : 10;
@@ -48,6 +26,46 @@ bool useIfX2 = root.TryGetProperty("UseIfXTable", out var uix2) && (uix2.ValueKi
 int? snmpTimeout2 = root.TryGetProperty("SnmpTimeoutMs", out var sto2) && sto2.ValueKind==JsonValueKind.Number ? sto2.GetInt32() : null;
 int? snmpRetries2 = root.TryGetProperty("SnmpRetries", out var sr2) && sr2.ValueKind==JsonValueKind.Number ? sr2.GetInt32() : null;
 int defaultSnmpPort = root.TryGetProperty("DefaultSnmpPort", out var dsp) && dsp.ValueKind==JsonValueKind.Number ? dsp.GetInt32() : 161;
+bool probeLogEnabled = root.TryGetProperty("ProbeLogEnabled", out var ple) && (ple.ValueKind==JsonValueKind.True || ple.ValueKind==JsonValueKind.False) ? ple.GetBoolean() : true;
+string? probeLogFile = root.TryGetProperty("ProbeLogFile", out var plf) && plf.ValueKind==JsonValueKind.String ? plf.GetString() : null;
+// SNMPv3 users (optional)
+var v3Users = new Dictionary<string,SnmpV3User>(StringComparer.OrdinalIgnoreCase);
+if (root.TryGetProperty("SnmpV3Users", out var v3Arr) && v3Arr.ValueKind==JsonValueKind.Array)
+{
+    foreach (var u in v3Arr.EnumerateArray())
+    {
+        try
+        {
+            var name = u.TryGetProperty("Name", out var n) ? n.GetString() : null;
+            if (string.IsNullOrWhiteSpace(name)) continue;
+            var user = new SnmpV3User{ Name = name! };
+            if (u.TryGetProperty("AuthProtocol", out var ap) && ap.ValueKind==JsonValueKind.String) user.AuthProtocol = ap.GetString()!;
+            if (u.TryGetProperty("AuthPassword", out var apw) && apw.ValueKind==JsonValueKind.String) user.AuthPassword = apw.GetString();
+            if (u.TryGetProperty("PrivProtocol", out var pp) && pp.ValueKind==JsonValueKind.String) user.PrivProtocol = pp.GetString()!;
+            if (u.TryGetProperty("PrivPassword", out var ppw) && ppw.ValueKind==JsonValueKind.String) user.PrivPassword = ppw.GetString();
+            if (u.TryGetProperty("Context", out var ctx) && ctx.ValueKind==JsonValueKind.String) user.Context = ctx.GetString();
+            v3Users[user.Name] = user;
+        }
+        catch { }
+    }
+}
+// Porter som skal auto-probes dersom switch ikke har en spesifikk SnmpPort
+var probePorts = new List<int>();
+if (root.TryGetProperty("SnmpProbePorts", out var spp) && spp.ValueKind == JsonValueKind.Array)
+{
+    foreach (var p in spp.EnumerateArray())
+    {
+        if (p.ValueKind == JsonValueKind.Number)
+        {
+            var portVal = p.GetInt32();
+            if (!probePorts.Contains(portVal)) probePorts.Add(portVal);
+        }
+    }
+}
+if (probePorts.Count == 0)
+{
+    probePorts.Add(defaultSnmpPort);
+}
 var switchList2 = new List<SwitchInfo>();
 if (root.TryGetProperty("Switches", out var swArr2) && swArr2.ValueKind == JsonValueKind.Array)
 {
@@ -65,15 +83,33 @@ if (root.TryGetProperty("Switches", out var swArr2) && swArr2.ValueKind == JsonV
                 {
                     swInfo.SnmpPort = spProp.GetInt32();
                 }
+                if (s.TryGetProperty("SnmpV3User", out var uProp) && uProp.ValueKind==JsonValueKind.String)
+                {
+                    swInfo.SnmpV3User = uProp.GetString();
+                }
+                if (s.TryGetProperty("IncludeIfIndices", out var inclArr) && inclArr.ValueKind==JsonValueKind.Array)
+                {
+                    var list = new List<int>();
+                    foreach (var v in inclArr.EnumerateArray())
+                        if (v.ValueKind==JsonValueKind.Number) list.Add(v.GetInt32());
+                    if (list.Count > 0) swInfo.IncludeIfIndices = list;
+                }
                 switchList2.Add(swInfo);
             }
         }
         catch { }
     }
 }
-var monitor2 = new SwitchMonitor(pollInterval, maxIf2, useIfX2, switchList2, snmpTimeout2, snmpRetries2, showSnmpErr, defaultSnmpPort);
-var collector2 = string.IsNullOrWhiteSpace(bindIp)
-    ? new SFlowCollector(sflowPort, sflowDebug, dumpFirstN)
-    : new SFlowCollector(sflowPort, sflowDebug, bindIp!, dumpFirstN);
-AppLogger.Info($"Starter Unified form Mode={mode} SNMPswitches={switchList2.Count} sFlowPort={sflowPort}");
-Application.Run(new UnifiedMainForm(monitor2, collector2, pollInterval, agentNameMap, mode, fallbackSeconds, combined));
+var monitor2 = new SwitchMonitor(pollInterval, maxIf2, useIfX2, switchList2, snmpTimeout2, snmpRetries2, showSnmpErr, defaultSnmpPort, probePorts, probeLogEnabled, probeLogFile);
+// Send inn SNMPv3 brukere dersom definert
+if (v3Users.Count > 0) monitor2.SetV3Users(v3Users.Values);
+// CommunitiesToTest (multi-community B) fra config
+if (root.TryGetProperty("CommunitiesToTest", out var ctest) && ctest.ValueKind==JsonValueKind.Array)
+{
+    var comms = new List<string>();
+    foreach (var ce in ctest.EnumerateArray())
+        if (ce.ValueKind==JsonValueKind.String) comms.Add(ce.GetString()!);
+    if (comms.Count > 0) SwitchMonitor.SetCommunitiesToTest(comms);
+}
+AppLogger.Info($"Starter SNMP form Switches={switchList2.Count}");
+Application.Run(new MainForm(monitor2, pollInterval, combined));

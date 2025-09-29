@@ -31,4 +31,5 @@ public class InterfaceSnapshot
             set => Timestamp = value;
         }
         public string Speed { get; set; } = string.Empty; // rå ifSpeed verdi
+        public int? ResolvedPort { get; set; } // SNMP-port brukt for denne raden
     }

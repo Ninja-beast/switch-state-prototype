@@ -80,18 +80,34 @@ public class MainForm : Form
     var editItem = new ToolStripMenuItem("Endre...");
     var testItem = new ToolStripMenuItem("Test SNMP");
     var diagItem = new ToolStripMenuItem("Diagnose...");
+    var commTestItem = new ToolStripMenuItem("Test communities...");
+    var snmpPingItem = new ToolStripMenuItem("SNMP Ping...");
+    var listIfItem = new ToolStripMenuItem("List porter...");
+    var graphItem = new ToolStripMenuItem("Graf for valgt port");
+    var histGraphItem = new ToolStripMenuItem("Historikk graf...");
     // Fjernet eget SNMP Query testvindu (testfil fjernet)
     cfgItem.DropDownItems.Add(editItem);
     cfgItem.DropDownItems.Add(testItem);
     cfgItem.DropDownItems.Add(new ToolStripSeparator());
-    cfgItem.DropDownItems.Add(diagItem);
+    cfgItem.DropDownItems.Add(snmpPingItem);
+    cfgItem.DropDownItems.Add(listIfItem);
     cfgItem.DropDownItems.Add(new ToolStripSeparator());
+    cfgItem.DropDownItems.Add(diagItem);
+    cfgItem.DropDownItems.Add(commTestItem);
+    cfgItem.DropDownItems.Add(new ToolStripSeparator());
+    cfgItem.DropDownItems.Add(graphItem);
+    cfgItem.DropDownItems.Add(histGraphItem);
     // queryItem fjernet
     _menu.Items.Add(cfgItem);
 
     editItem.Click += async (s,e) => await ShowConfigAsync();
     testItem.Click += async (s,e) => await TestCurrentAsync();
     diagItem.Click += async (s,e) => await DiagnoseAsync();
+    commTestItem.Click += async (s,e) => await TestCommunitiesAsync();
+    snmpPingItem.Click += async (s,e) => await SnmpPingAsync();
+    listIfItem.Click += async (s,e) => await ListInterfacesAsync();
+    graphItem.Click += (s,e) => OpenGraphForSelected();
+    histGraphItem.Click += (s,e) => OpenHistoricalGraphForSelected();
     // queryItem.Click fjernet
 
     Controls.Add(_grid);
@@ -153,6 +169,16 @@ public class MainForm : Form
         {
             var snaps = await _monitor.PollOnceAsync();
             _lastSnapshots = snaps;
+            // Oppdater åpne grafvinduer
+            foreach (Form f in Application.OpenForms)
+            {
+                if (f is PortGraphForm pg)
+                {
+                    var match = snaps.FirstOrDefault(s => pg.Matches(s.SwitchIp, s.IfIndex));
+                    if (match != null)
+                        pg.AddSample(match.Timestamp.ToLocalTime(), match.InBps, match.OutBps);
+                }
+            }
             BindGrid(snaps);
             var errors = snaps.Count(s => s.Status == "ERR");
             _statusLabel.Text = $"Sist {(manual?"manuell":"auto")} oppdatert: {DateTime.Now:HH:mm:ss}  Rader: {snaps.Count}  Feil: {errors}";
@@ -252,6 +278,127 @@ public class MainForm : Form
         }
     }
 
+    private async Task SnmpPingAsync()
+    {
+        if (_busy) return;
+        var sw = _monitor.GetSwitches().FirstOrDefault();
+        if (sw == null)
+        {
+            MessageBox.Show(this, "Ingen switch er konfigurert.", "SNMP Ping", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+        try
+        {
+            _statusLabel.Text = "SNMP ping...";
+            var (ok,msg) = await _monitor.SnmpPingAsync(sw.IPAddress);
+            _statusLabel.Text = msg;
+            MessageBox.Show(this, msg, "SNMP Ping", MessageBoxButtons.OK, ok?MessageBoxIcon.Information:MessageBoxIcon.Warning);
+        }
+        catch (Exception ex)
+        {
+            _statusLabel.Text = "SNMP ping feil";
+            MessageBox.Show(this, ex.Message, "SNMP Ping feil", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    private async Task ListInterfacesAsync()
+    {
+        if (_busy) return;
+        var sw = _monitor.GetSwitches().FirstOrDefault();
+        if (sw == null)
+        {
+            MessageBox.Show(this, "Ingen switch er konfigurert.", "Portliste", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+        try
+        {
+            _statusLabel.Text = "Henter porter...";
+            var (ok, list, err) = await _monitor.ListInterfacesAsync(sw.IPAddress, 256);
+            if (!ok && list.Count == 0)
+            {
+                MessageBox.Show(this, err ?? "Ukjent feil", "Portliste", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                _statusLabel.Text = err ?? "Feil";
+                return;
+            }
+            var sb = new System.Text.StringBuilder();
+            foreach (var (idx,name) in list)
+                sb.AppendLine($"{idx}: {name}");
+            using var dlg = new Form
+            {
+                Text = $"Porter - {sw.Name}",
+                Width = 480,
+                Height = 600,
+                StartPosition = FormStartPosition.CenterParent,
+                BackColor = Color.FromArgb(32,32,36),
+                ForeColor = Color.Gainsboro,
+                Font = Font
+            };
+            var tb = new TextBox
+            {
+                Multiline = true,
+                ReadOnly = true,
+                ScrollBars = ScrollBars.Vertical,
+                Dock = DockStyle.Fill,
+                BackColor = Color.FromArgb(25,25,28),
+                ForeColor = Color.LightGreen,
+                Text = sb.ToString()
+            };
+            dlg.Controls.Add(tb);
+            dlg.ShowDialog(this);
+            _statusLabel.Text = $"Porter hentet: {list.Count}";
+        }
+        catch (Exception ex)
+        {
+            _statusLabel.Text = "Feil ved portliste";
+            MessageBox.Show(this, ex.Message, "Portliste feil", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    private async Task TestCommunitiesAsync()
+    {
+        if (_busy) return;
+        var sw = _monitor.GetSwitches().FirstOrDefault();
+        if (sw == null)
+        {
+            MessageBox.Show(this, "Ingen switch er konfigurert.", "Community test", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+        try
+        {
+            _statusLabel.Text = "Tester communities...";
+            var (rows, note) = await _monitor.TestCommunitiesAsync(sw.IPAddress);
+            _statusLabel.Text = note;
+            var text = string.Join("\n", rows);
+            using var dlg = new Form
+            {
+                Text = $"Community test - {sw.Name}",
+                Width = 520,
+                Height = 480,
+                StartPosition = FormStartPosition.CenterParent,
+                BackColor = Color.FromArgb(32,32,36),
+                ForeColor = Color.Gainsboro,
+                Font = Font
+            };
+            var tb = new TextBox
+            {
+                Multiline = true,
+                ReadOnly = true,
+                ScrollBars = ScrollBars.Vertical,
+                Dock = DockStyle.Fill,
+                BackColor = Color.FromArgb(25,25,28),
+                ForeColor = Color.LightGreen,
+                Text = text.Replace("\n", Environment.NewLine)
+            };
+            dlg.Controls.Add(tb);
+            dlg.ShowDialog(this);
+        }
+        catch (Exception ex)
+        {
+            _statusLabel.Text = "Community test feil";
+            MessageBox.Show(this, ex.Message, "Community test", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
     private void PersistSettings(ConfigForm.ResultConfig r)
     {
         try
@@ -280,11 +427,12 @@ public class MainForm : Form
         _grid.Rows.Clear();
         foreach (var s in snaps.OrderBy(x => x.SwitchName).ThenBy(x => x.IfIndex))
         {
+            var displaySwitch = s.SwitchName; // fjernet visning av (pPORT) etter ønske
             int idx;
             if (_combined)
             {
                 idx = _grid.Rows.Add(
-                    s.SwitchName,
+                    displaySwitch,
                     s.SwitchIp,
                     s.IfIndex,
                     s.IfName,
@@ -299,7 +447,7 @@ public class MainForm : Form
             else
             {
                 idx = _grid.Rows.Add(
-                    s.SwitchName,
+                    displaySwitch,
                     s.SwitchIp,
                     s.IfIndex,
                     s.IfName,
@@ -346,5 +494,61 @@ public class MainForm : Form
             return sp.ToString("0");
         }
         return raw;
+    }
+
+    private void OpenGraphForSelected()
+    {
+        if (_grid.SelectedRows.Count == 0) { MessageBox.Show(this, "Velg en rad først", "Graf", MessageBoxButtons.OK, MessageBoxIcon.Information); return; }
+        var row = _grid.SelectedRows[0];
+        if (row.Cells.Count < 3) return;
+        var swName = row.Cells[0].Value?.ToString() ?? "?";
+        var swIp = row.Cells[1].Value?.ToString() ?? "?";
+        if (!int.TryParse(row.Cells[2].Value?.ToString(), out var ifIndex) || ifIndex <= 0)
+        {
+            MessageBox.Show(this, "Rad mangler gyldig ifIndex", "Graf", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+        // Finn eksisterende
+        foreach (Form f in Application.OpenForms)
+        {
+            if (f is PortGraphForm pg && pg.Matches(swIp, ifIndex))
+            {
+                pg.Focus();
+                return;
+            }
+        }
+        var graph = new PortGraphForm(swName, swIp, ifIndex);
+        // Sett initial sample hvis vi har i snapshot-listen
+        var snap = _lastSnapshots.FirstOrDefault(s => s.SwitchIp == swIp && s.IfIndex == ifIndex);
+        if (snap != null)
+            graph.AddSample(DateTime.Now, snap.InBps, snap.OutBps);
+        graph.Show(this);
+    }
+
+    private void OpenHistoricalGraphForSelected()
+    {
+        if (_grid.SelectedRows.Count == 0) { MessageBox.Show(this, "Velg en rad først", "Historikk", MessageBoxButtons.OK, MessageBoxIcon.Information); return; }
+        var row = _grid.SelectedRows[0];
+        if (row.Cells.Count < 4) return;
+        var swName = row.Cells[0].Value?.ToString() ?? "?";
+        var swIp = row.Cells[1].Value?.ToString() ?? "?";
+        if (!int.TryParse(row.Cells[2].Value?.ToString(), out var ifIndex) || ifIndex <= 0)
+        {
+            MessageBox.Show(this, "Rad mangler gyldig ifIndex", "Historikk", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+        var ifName = row.Cells[3].Value?.ToString() ?? $"if{ifIndex}";
+        // Sjekk eksisterende
+        foreach (Form f in Application.OpenForms)
+        {
+            if (f is HistoricalGraphForm hg && hg.Text.Contains(swName) && hg.Text.Contains($"ifIndex={ifIndex}"))
+            {
+                hg.Focus();
+                return;
+            }
+        }
+        var title = $"{swName} {ifName} ifIndex={ifIndex}";
+        var hist = new HistoricalGraphForm(_monitor, swIp, ifIndex, title);
+        hist.Show(this);
     }
 }

@@ -9,4 +9,6 @@ public class SwitchInfo
     public int? SnmpPort { get; set; }
     // Optional explicit list of interface indices to poll (overrides MaxInterfaces if provided)
     public List<int>? IncludeIfIndices { get; set; }
+    // Optional SNMPv3 user to use (if set, we attempt v3 first)
+    public string? SnmpV3User { get; set; }
 }

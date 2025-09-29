@@ -141,7 +141,7 @@ public class MainForm : Form
         _grid.Columns.Clear();
         _grid.Columns.Add("SwitchName", "Switch");
     _grid.Columns.Add("SwitchIp", "IP");
-        _grid.Columns.Add("IfIndex", "Idx");
+    _grid.Columns.Add("IfIndex", "Port");
     _grid.Columns.Add("IfName", "Interface");
         _grid.Columns.Add("Status", "Status");
     _grid.Columns.Add("SpeedLabel", "Speed");

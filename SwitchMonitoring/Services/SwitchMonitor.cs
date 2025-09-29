@@ -28,7 +28,7 @@ public class SwitchMonitor
     // Historikk: key = SwitchIp|IfIndex
     private readonly Dictionary<string, List<InterfaceSnapshot>> _history = new();
     private readonly object _historyLock = new();
-    private const int MaxHistoryPerInterface = 2000; // ca avhengig av pollingintervall
+    private const int MaxHistoryPerInterface = 20000; // økt for lengre historikk (OBS: minnebruk)
 
     public SwitchMonitor(int pollIntervalSeconds, int maxInterfaces, bool useIfXTable, List<SwitchInfo> switches, int? snmpTimeoutMs = null, int? snmpRetries = null, bool showErrorDetails = false, int defaultSnmpPort = 161, List<int>? probePorts = null, bool probeLogEnabled = true, string? probeLogFile = null)
     {

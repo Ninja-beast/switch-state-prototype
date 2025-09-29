@@ -16,6 +16,8 @@ public class HistoricalGraphForm : Form
     private bool _includeTotal = true;
     private bool _smoothing = false;
     private readonly Label _titleLabel = null!; // initialized in ctor
+    private bool _futurePadding = false; // 50 år frem
+    private const double FutureYears = 50.0;
     public HistoricalGraphForm(SwitchMonitor monitor, string switchIp, int ifIndex, string title, int minutesWindow = 120)
     {
         _monitor = monitor; _switchIp = switchIp; _ifIndex = ifIndex; _title = title; _minutesWindow = minutesWindow;
@@ -27,7 +29,8 @@ public class HistoricalGraphForm : Form
         var top = new Panel{Dock=DockStyle.Top,Height=32,Padding=new Padding(6,4,6,4)};
     _titleLabel = new Label{Text=$"{title} (siste {_minutesWindow} min)",Dock=DockStyle.Left,Width=400,ForeColor=Color.White};
         var winBox = new ComboBox{Dock=DockStyle.Right,Width=100,DropDownStyle=ComboBoxStyle.DropDownList};
-        winBox.Items.AddRange(new object[]{"30","60","120","240","480"});
+    // minutter valg + større intervaller (1d,7d,30d, 180d, 365d)
+    winBox.Items.AddRange(new object[]{"30","60","120","240","480","1440","10080","43200","259200","525600"});
         winBox.SelectedItem = _minutesWindow.ToString();
         top.Controls.Add(winBox);
         top.Controls.Add(_titleLabel);
@@ -46,9 +49,10 @@ public class HistoricalGraphForm : Form
         };
         _canvas.Paint += CanvasOnPaint;
         var ctx = new ContextMenuStrip();
-        var totalItem = new ToolStripMenuItem("Vis total areal"){Checked=_includeTotal,CheckOnClick=true}; totalItem.CheckedChanged += (s,e)=>{_includeTotal=totalItem.Checked; _canvas.Invalidate();};
+    var totalItem = new ToolStripMenuItem("Vis total areal"){Checked=_includeTotal,CheckOnClick=true}; totalItem.CheckedChanged += (s,e)=>{_includeTotal=totalItem.Checked; _canvas.Invalidate();};
         var smoothItem = new ToolStripMenuItem("Glatting (MA5)"){Checked=_smoothing,CheckOnClick=true}; smoothItem.CheckedChanged += (s,e)=>{_smoothing=smoothItem.Checked; _canvas.Invalidate();};
-        ctx.Items.Add(totalItem); ctx.Items.Add(smoothItem);
+    var futureItem = new ToolStripMenuItem("Fremtid +50 år"){Checked=_futurePadding,CheckOnClick=true}; futureItem.CheckedChanged += (s,e)=>{_futurePadding=futureItem.Checked; _canvas.Invalidate();};
+    ctx.Items.Add(totalItem); ctx.Items.Add(smoothItem); ctx.Items.Add(futureItem);
         _canvas.ContextMenuStrip = ctx;
         Controls.Add(_canvas);
         Controls.Add(top);
@@ -71,7 +75,13 @@ public class HistoricalGraphForm : Form
         var g = e.Graphics; g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
         if (_history.Count < 2){ g.DrawString("Ingen historikk", Font, Brushes.Gray, 10,10); return; }
         var arr = _history.ToArray();
-        DateTime minT = arr.First().Timestamp; DateTime maxT = arr.Last().Timestamp; double totalSec = (maxT-minT).TotalSeconds; if (totalSec<=0) totalSec=1;
+        DateTime minT = arr.First().Timestamp; DateTime maxT = arr.Last().Timestamp;
+        DateTime drawMaxT = maxT;
+        if (_futurePadding)
+        {
+            drawMaxT = maxT.AddYears((int)FutureYears);
+        }
+        double totalSec = (drawMaxT-minT).TotalSeconds; if (totalSec<=0) totalSec=1;
         double maxVal = arr.Max(p=>p.InBps + p.OutBps); if (maxVal<=0) maxVal=1; maxVal = NiceCeiling(maxVal);
         var rect = new Rectangle(60,20,_canvas.Width-90,_canvas.Height-70);
         using(var bg = new System.Drawing.Drawing2D.LinearGradientBrush(rect, Color.FromArgb(26,26,30), Color.FromArgb(16,16,20),90f)) g.FillRectangle(bg, rect);

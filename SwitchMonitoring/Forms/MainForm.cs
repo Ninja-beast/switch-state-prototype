@@ -84,7 +84,6 @@ public class MainForm : Form
     var snmpPingItem = new ToolStripMenuItem("SNMP Ping...");
     var listIfItem = new ToolStripMenuItem("List porter...");
     var graphItem = new ToolStripMenuItem("Graf for valgt port");
-    var histGraphItem = new ToolStripMenuItem("Historikk graf...");
     // Fjernet eget SNMP Query testvindu (testfil fjernet)
     cfgItem.DropDownItems.Add(editItem);
     cfgItem.DropDownItems.Add(testItem);
@@ -96,7 +95,6 @@ public class MainForm : Form
     cfgItem.DropDownItems.Add(commTestItem);
     cfgItem.DropDownItems.Add(new ToolStripSeparator());
     cfgItem.DropDownItems.Add(graphItem);
-    cfgItem.DropDownItems.Add(histGraphItem);
     // queryItem fjernet
     _menu.Items.Add(cfgItem);
 
@@ -107,7 +105,12 @@ public class MainForm : Form
     snmpPingItem.Click += async (s,e) => await SnmpPingAsync();
     listIfItem.Click += async (s,e) => await ListInterfacesAsync();
     graphItem.Click += (s,e) => OpenGraphForSelected();
-    histGraphItem.Click += (s,e) => OpenHistoricalGraphForSelected();
+    // Eget historikk toppnivå meny
+    var histMenu = new ToolStripMenuItem("Historikk");
+    var histOpenItem = new ToolStripMenuItem("Historikk graf av valgt port...");
+    histOpenItem.Click += (s,e) => OpenHistoricalGraphForSelected();
+    histMenu.DropDownItems.Add(histOpenItem);
+    _menu.Items.Add(histMenu);
     // queryItem.Click fjernet
 
     Controls.Add(_grid);
@@ -115,6 +118,7 @@ public class MainForm : Form
     Controls.Add(_statusLabel);
     Controls.Add(_menu);
     MainMenuStrip = _menu;
+    KeyPreview = true;
         InitColumns();
 
     _uiTimer = new System.Windows.Forms.Timer();
@@ -134,6 +138,26 @@ public class MainForm : Form
     _autoTimer.Start();
         // Ekstra poll etter kort delay for å få med eventuelle første SNMP timeouts i logg
         _ = Task.Run(async () => { await Task.Delay(2000); await RefreshDataAsync(); });
+    }
+
+    protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+    {
+        if (keyData == Keys.F5)
+        {
+            _ = ManualRefreshAsync();
+            return true;
+        }
+        if (keyData == (Keys.Control | Keys.G))
+        {
+            OpenGraphForSelected();
+            return true;
+        }
+        if (keyData == (Keys.Control | Keys.H))
+        {
+            OpenHistoricalGraphForSelected();
+            return true;
+        }
+        return base.ProcessCmdKey(ref msg, keyData);
     }
 
     private void InitColumns()
@@ -465,11 +489,21 @@ public class MainForm : Form
             {
                 row.DefaultCellStyle.BackColor = Color.DarkRed;
                 row.DefaultCellStyle.ForeColor = Color.White;
+                row.Cells[4].ToolTipText = s.Status switch
+                {
+                    "TIMEOUT" => "SNMP forespørsel timeout (ingen svar innen tidsfrist)",
+                    "AUTH" => "Autentiseringsfeil (community / v3 user)",
+                    "SOCKET" => "Socket-feil (nettverk eller port utilgjengelig)",
+                    "NOSUCH" => "MIB/OID svarte med noSuchObject/Instance",
+                    "REFUSED" => "Forbindelse nektet (port lukket / ACL)",
+                    _ => "Generell SNMP feil"
+                };
             }
             else if (s.Status.Equals("DOWN", StringComparison.OrdinalIgnoreCase))
             {
                 row.DefaultCellStyle.BackColor = Color.FromArgb(90,60,0);
                 row.DefaultCellStyle.ForeColor = Color.White;
+                row.Cells[4].ToolTipText = "Interface operativt nede (ifOperStatus=down)";
             }
         }
         _grid.ResumeLayout();

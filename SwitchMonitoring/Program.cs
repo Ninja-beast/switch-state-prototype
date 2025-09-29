@@ -6,6 +6,31 @@ using SwitchMonitoring.Forms;
 // Enkle WinForms oppstart uten generert designer
 ApplicationConfiguration.Initialize();
 
+// Global exception handling
+AppDomain.CurrentDomain.UnhandledException += (s, e) =>
+{
+    try
+    {
+        AppLogger.Error("UNHANDLED: " + e.ExceptionObject);
+    }
+    catch { }
+};
+TaskScheduler.UnobservedTaskException += (s, e) =>
+{
+    try
+    {
+        AppLogger.Error("TASK-UNOBSERVED: " + e.Exception);
+        e.SetObserved();
+    }
+    catch { }
+};
+
+try
+{
+
+// Last brukerpreferanser tidlig
+UserPreferences.Load();
+
 var configPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
 AppLogger.Info("Starter applikasjon");
 if (!File.Exists(configPath))
@@ -113,3 +138,9 @@ if (root.TryGetProperty("CommunitiesToTest", out var ctest) && ctest.ValueKind==
 }
 AppLogger.Info($"Starter SNMP form Switches={switchList2.Count}");
 Application.Run(new MainForm(monitor2, pollInterval, combined));
+}
+catch (Exception ex)
+{
+    AppLogger.Error("Fatal startfeil: " + ex);
+    MessageBox.Show("Fatal feil ved oppstart: " + ex.Message, "Feil", MessageBoxButtons.OK, MessageBoxIcon.Error);
+}

@@ -29,6 +29,7 @@ public class SwitchMonitor
     private readonly Dictionary<string, List<InterfaceSnapshot>> _history = new();
     private readonly object _historyLock = new();
     private const int MaxHistoryPerInterface = 20000; // økt for lengre historikk (OBS: minnebruk)
+    private readonly HistoryStore _historyStore = new(Path.Combine(AppContext.BaseDirectory, "history"), 30);
 
     public SwitchMonitor(int pollIntervalSeconds, int maxInterfaces, bool useIfXTable, List<SwitchInfo> switches, int? snmpTimeoutMs = null, int? snmpRetries = null, bool showErrorDetails = false, int defaultSnmpPort = 161, List<int>? probePorts = null, bool probeLogEnabled = true, string? probeLogFile = null)
     {
@@ -75,6 +76,38 @@ public class SwitchMonitor
             if (list.Count > MaxHistoryPerInterface)
                 list.RemoveRange(0, list.Count - MaxHistoryPerInterface);
         }
+        // Persist til disk (fire & forget)
+        try
+        {
+            _historyStore.Append(snap.SwitchIp, snap.IfIndex, snap.Timestamp, snap.InBps, snap.OutBps, snap.UtilInPercent, snap.UtilOutPercent, snap.SpeedLabel);
+        }
+        catch { }
+    }
+
+    public List<InterfaceSnapshot> LoadHistoryFromDisk(string switchIp, int ifIndex, DateTime fromUtc)
+    {
+        var list = new List<InterfaceSnapshot>();
+        try
+        {
+            foreach (var rec in _historyStore.ReadRange(switchIp, ifIndex, fromUtc))
+            {
+                list.Add(new InterfaceSnapshot
+                {
+                    SwitchIp = switchIp,
+                    SwitchName = _switches.FirstOrDefault(s=>s.IPAddress==switchIp)?.Name ?? switchIp,
+                    IfIndex = ifIndex,
+                    Timestamp = rec.ts,
+                    InBps = rec.inBps,
+                    OutBps = rec.outBps,
+                    UtilInPercent = rec.ui,
+                    UtilOutPercent = rec.uo,
+                    SpeedLabel = rec.speed,
+                    Status = "OK"
+                });
+            }
+        }
+        catch { }
+        return list.OrderBy(x=>x.Timestamp).ToList();
     }
 
     public void SetV3Users(IEnumerable<SnmpV3User> users)

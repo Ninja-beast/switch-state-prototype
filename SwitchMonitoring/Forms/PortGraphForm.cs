@@ -10,11 +10,13 @@ public class PortGraphForm : Form
     private readonly Panel _canvas;
     private readonly Label _legend;
     private double _lastMaxY = 0;
-    private const double ScaleGrowFactor = 1.10; // grow a bit above observed peak
-    private const double ScaleShrinkThreshold = 0.55; // shrink when current peak < threshold * last
+    private const double ScaleGrowFactor = 1.05; // slightly smaller hysteresis expansion
+    private const double ScaleShrinkThreshold = 0.60; // shrink when current peak < threshold * last
+    private const double StaticHeadroomFactor = 1.30; // always add 30% headroom to reduce "zoomed in" look
     private bool _showTotal = true;
     private bool _smoothing = false;
     private readonly ContextMenuStrip _ctx;
+    // (Hover fjernet etter ønske)
 
     public PortGraphForm(string switchName, string switchIp, int ifIndex, int maxPoints = 240)
     {
@@ -26,8 +28,8 @@ public class PortGraphForm : Form
         DoubleBuffered = true;
 
     _legend = new Label{ Dock = DockStyle.Top, Height = 26, Text = "In (blå) | Out (oransje) | Total (grå)", ForeColor = Color.White, TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(6,0,0,0) };
-        _canvas = new Panel{ Dock = DockStyle.Fill, BackColor = Color.FromArgb(20,20,24) };
-        _canvas.Paint += CanvasOnPaint;
+    _canvas = new BufferedPanel{ Dock = DockStyle.Fill, BackColor = Color.FromArgb(20,20,24) };
+    _canvas.Paint += CanvasOnPaint; // ingen hover events lenger
         _canvas.ContextMenuStrip = _ctx = BuildContext();
         Controls.Add(_canvas);
         Controls.Add(_legend);
@@ -62,7 +64,7 @@ public class PortGraphForm : Form
             g.DrawString("For lite data...", Font, Brushes.Gray, 10, 10);
             return;
         }
-        var arr = _points.ToArray();
+    var arr = _points.ToArray();
         var minT = arr.First().ts;
         var maxT = arr.Last().ts;
         var totalSeconds = (maxT - minT).TotalSeconds;
@@ -72,10 +74,10 @@ public class PortGraphForm : Form
         if (observedMax <= 0) observedMax = 1;
         // Hysterese: justér _lastMaxY
         if (_lastMaxY <= 0) _lastMaxY = observedMax;
-        if (observedMax > _lastMaxY) _lastMaxY = observedMax * ScaleGrowFactor; // expand with headroom
+        if (observedMax > _lastMaxY) _lastMaxY = observedMax * ScaleGrowFactor;
         else if (observedMax < _lastMaxY * ScaleShrinkThreshold)
-            _lastMaxY = observedMax * ScaleGrowFactor; // collapse gradually
-        double maxVal = NiceCeiling(_lastMaxY);
+            _lastMaxY = observedMax * ScaleGrowFactor;
+        double maxVal = NiceCeiling(_lastMaxY * StaticHeadroomFactor); // fast headroom
         var rect = new Rectangle(55, 20, _canvas.Width - 90, _canvas.Height - 70);
         using var axisPen = new Pen(Color.DimGray,1);
         // background gradient subtle
@@ -157,6 +159,18 @@ public class PortGraphForm : Form
         g.DrawString($"In {FormatBps(last.inBps)}", Font, Brushes.DeepSkyBlue, rect.Right - 140, rect.Top + 4);
         g.DrawString($"Out {FormatBps(last.outBps)}", Font, Brushes.Orange, rect.Right - 140, rect.Top + 20);
         g.DrawString($"Tot {FormatBps(last.inBps + last.outBps)} (Avg {FormatBps(avgTotal)})", Font, Brushes.LightGray, rect.Right - 220, rect.Top + 36);
+
+        // (Ingen hover overlay lenger)
+    }
+    // (CanvasOnMouseMove fjernet)
+
+    private class BufferedPanel : Panel
+    {
+        public BufferedPanel()
+        {
+            this.SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer, true);
+            this.UpdateStyles();
+        }
     }
 
     private static string FormatBps(double v)

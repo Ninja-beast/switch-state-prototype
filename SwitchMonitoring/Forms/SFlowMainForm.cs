@@ -160,9 +160,9 @@ public class SFlowMainForm : Form
                 if (!seenAgents.Contains(kv.Key))
                 {
                     if (_combined)
-                        _grid.Rows.Add($"{kv.Value} ({kv.Key})", "-", "(ingen data ennå)", "-/-", "-");
+                        _grid.Rows.Add($"{kv.Value} ({kv.Key})", "-", "(no data yet)", "-/-", "-");
                     else
-                        _grid.Rows.Add($"{kv.Value} ({kv.Key})", "-", "(ingen data ennå)", "-", "-", "-");
+                        _grid.Rows.Add($"{kv.Value} ({kv.Key})", "-", "(no data yet)", "-", "-", "-");
                 }
             }
             _grid.ResumeLayout();
@@ -171,7 +171,7 @@ public class SFlowMainForm : Form
             // Oppdater placeholder med flow-only info
             foreach (DataGridViewRow row in _grid.Rows)
             {
-                if (row.Cells[1].Value?.ToString()=="-" && row.Cells[2].Value?.ToString()=="(ingen data ennå)")
+                if (row.Cells[1].Value?.ToString()=="-" && row.Cells[2].Value?.ToString()=="(no data yet)")
                 {
                     // hent IP fra agent label i parentes
                     var agentLabel = row.Cells[0].Value?.ToString() ?? "";

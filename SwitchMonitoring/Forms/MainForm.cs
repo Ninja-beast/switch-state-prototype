@@ -76,14 +76,14 @@ public class MainForm : Form
         _refreshButton.Click += async (s,e) => await ManualRefreshAsync();
 
     _menu = new MenuStrip{Dock=DockStyle.Top, BackColor=Color.FromArgb(45,45,50), ForeColor=Color.White};
-    var cfgItem = new ToolStripMenuItem("Konfigurasjon");
-    var editItem = new ToolStripMenuItem("Endre...");
+    var cfgItem = new ToolStripMenuItem("Configuration");
+    var editItem = new ToolStripMenuItem("Edit...");
     var testItem = new ToolStripMenuItem("Test SNMP");
-    var diagItem = new ToolStripMenuItem("Diagnose...");
+    var diagItem = new ToolStripMenuItem("Diagnosis...");
     var commTestItem = new ToolStripMenuItem("Test communities...");
     var snmpPingItem = new ToolStripMenuItem("SNMP Ping...");
     var listIfItem = new ToolStripMenuItem("List porter...");
-    var graphItem = new ToolStripMenuItem("Graf for valgt port");
+    var graphItem = new ToolStripMenuItem("Graph for selected port");
     // Fjernet eget SNMP Query testvindu (testfil fjernet)
     cfgItem.DropDownItems.Add(editItem);
     cfgItem.DropDownItems.Add(testItem);
@@ -106,8 +106,8 @@ public class MainForm : Form
     listIfItem.Click += async (s,e) => await ListInterfacesAsync();
     graphItem.Click += (s,e) => OpenGraphForSelected();
     // Eget historikk toppnivå meny
-    var histMenu = new ToolStripMenuItem("Historikk");
-    var histOpenItem = new ToolStripMenuItem("Historikk graf av valgt port...");
+    var histMenu = new ToolStripMenuItem("History");
+    var histOpenItem = new ToolStripMenuItem("History graph of selected port...");
     histOpenItem.Click += (s,e) => OpenHistoricalGraphForSelected();
     histMenu.DropDownItems.Add(histOpenItem);
     _menu.Items.Add(histMenu);
@@ -205,7 +205,7 @@ public class MainForm : Form
             }
             BindGrid(snaps);
             var errors = snaps.Count(s => s.Status == "ERR");
-            _statusLabel.Text = $"Sist {(manual?"manuell":"auto")} oppdatert: {DateTime.Now:HH:mm:ss}  Rader: {snaps.Count}  Feil: {errors}";
+            _statusLabel.Text = $"Sist {(manual?"manuell":"auto")} Updated: {DateTime.Now:HH:mm:ss}  Rows: {snaps.Count}  Error: {errors}";
             if (snaps.Count == 0)
             {
                 _statusLabel.Text += " | Ingen data – sjekk Diagnose";
@@ -320,8 +320,8 @@ public class MainForm : Form
         }
         catch (Exception ex)
         {
-            _statusLabel.Text = "SNMP ping feil";
-            MessageBox.Show(this, ex.Message, "SNMP Ping feil", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            _statusLabel.Text = "SNMP ping error";
+            MessageBox.Show(this, ex.Message, "SNMP Ping error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
@@ -331,16 +331,16 @@ public class MainForm : Form
         var sw = _monitor.GetSwitches().FirstOrDefault();
         if (sw == null)
         {
-            MessageBox.Show(this, "Ingen switch er konfigurert.", "Portliste", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show(this, "No switch is configured.", "Port list", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
         try
         {
-            _statusLabel.Text = "Henter porter...";
+            _statusLabel.Text = "Fetching ports...";
             var (ok, list, err) = await _monitor.ListInterfacesAsync(sw.IPAddress, 256);
             if (!ok && list.Count == 0)
             {
-                MessageBox.Show(this, err ?? "Ukjent feil", "Portliste", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(this, err ?? "Unknown error", "Port list", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 _statusLabel.Text = err ?? "Feil";
                 return;
             }
@@ -369,12 +369,12 @@ public class MainForm : Form
             };
             dlg.Controls.Add(tb);
             dlg.ShowDialog(this);
-            _statusLabel.Text = $"Porter hentet: {list.Count}";
+            _statusLabel.Text = $"Porter fetched: {list.Count}";
         }
         catch (Exception ex)
         {
-            _statusLabel.Text = "Feil ved portliste";
-            MessageBox.Show(this, ex.Message, "Portliste feil", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            _statusLabel.Text = "Error with port list";
+            MessageBox.Show(this, ex.Message, "Port list error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
@@ -384,12 +384,12 @@ public class MainForm : Form
         var sw = _monitor.GetSwitches().FirstOrDefault();
         if (sw == null)
         {
-            MessageBox.Show(this, "Ingen switch er konfigurert.", "Community test", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show(this, "No switch is configured..", "Community test", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
         try
         {
-            _statusLabel.Text = "Tester communities...";
+            _statusLabel.Text = "Testing communities...";
             var (rows, note) = await _monitor.TestCommunitiesAsync(sw.IPAddress);
             _statusLabel.Text = note;
             var text = string.Join("\n", rows);
@@ -418,7 +418,7 @@ public class MainForm : Form
         }
         catch (Exception ex)
         {
-            _statusLabel.Text = "Community test feil";
+            _statusLabel.Text = "Community test error";
             MessageBox.Show(this, ex.Message, "Community test", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
@@ -441,7 +441,7 @@ public class MainForm : Form
         }
         catch (Exception ex)
         {
-            _statusLabel.Text = "Kunne ikke lagre konfig: " + ex.Message;
+            _statusLabel.Text = "Could not save config: " + ex.Message;
         }
     }
 
@@ -491,19 +491,19 @@ public class MainForm : Form
                 row.DefaultCellStyle.ForeColor = Color.White;
                 row.Cells[4].ToolTipText = s.Status switch
                 {
-                    "TIMEOUT" => "SNMP forespørsel timeout (ingen svar innen tidsfrist)",
-                    "AUTH" => "Autentiseringsfeil (community / v3 user)",
-                    "SOCKET" => "Socket-feil (nettverk eller port utilgjengelig)",
-                    "NOSUCH" => "MIB/OID svarte med noSuchObject/Instance",
-                    "REFUSED" => "Forbindelse nektet (port lukket / ACL)",
-                    _ => "Generell SNMP feil"
+                    "TIMEOUT" => "SNMP request timeout (no response within deadline)",
+                    "AUTH" => "Authentication error (community / v3 user)",
+                    "SOCKET" => "Socket-feil (network or port unavailable)",
+                    "NOSUCH" => "MIB/OID responded with noSuchObject/Instance",
+                    "REFUSED" => "Connection refused (port closed / ACL)",
+                    _ => "General SNMP error"
                 };
             }
             else if (s.Status.Equals("DOWN", StringComparison.OrdinalIgnoreCase))
             {
                 row.DefaultCellStyle.BackColor = Color.FromArgb(90,60,0);
                 row.DefaultCellStyle.ForeColor = Color.White;
-                row.Cells[4].ToolTipText = "Interface operativt nede (ifOperStatus=down)";
+                row.Cells[4].ToolTipText = "Interface operationally down (ifOperStatus=down)";
             }
         }
         _grid.ResumeLayout();
@@ -532,14 +532,14 @@ public class MainForm : Form
 
     private void OpenGraphForSelected()
     {
-        if (_grid.SelectedRows.Count == 0) { MessageBox.Show(this, "Velg en rad først", "Graf", MessageBoxButtons.OK, MessageBoxIcon.Information); return; }
+        if (_grid.SelectedRows.Count == 0) { MessageBox.Show(this, "Select a row first", "Graph", MessageBoxButtons.OK, MessageBoxIcon.Information); return; }
         var row = _grid.SelectedRows[0];
         if (row.Cells.Count < 3) return;
         var swName = row.Cells[0].Value?.ToString() ?? "?";
         var swIp = row.Cells[1].Value?.ToString() ?? "?";
         if (!int.TryParse(row.Cells[2].Value?.ToString(), out var ifIndex) || ifIndex <= 0)
         {
-            MessageBox.Show(this, "Rad mangler gyldig ifIndex", "Graf", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show(this, "Row lacks valid ifIndex", "Graph", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
         // Finn eksisterende
@@ -561,14 +561,14 @@ public class MainForm : Form
 
     private void OpenHistoricalGraphForSelected()
     {
-        if (_grid.SelectedRows.Count == 0) { MessageBox.Show(this, "Velg en rad først", "Historikk", MessageBoxButtons.OK, MessageBoxIcon.Information); return; }
+        if (_grid.SelectedRows.Count == 0) { MessageBox.Show(this, "Select a row first", "History", MessageBoxButtons.OK, MessageBoxIcon.Information); return; }
         var row = _grid.SelectedRows[0];
         if (row.Cells.Count < 4) return;
         var swName = row.Cells[0].Value?.ToString() ?? "?";
         var swIp = row.Cells[1].Value?.ToString() ?? "?";
         if (!int.TryParse(row.Cells[2].Value?.ToString(), out var ifIndex) || ifIndex <= 0)
         {
-            MessageBox.Show(this, "Rad mangler gyldig ifIndex", "Historikk", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show(this, "Row lacks valid ifIndex", "History", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
         var ifName = row.Cells[3].Value?.ToString() ?? $"if{ifIndex}";

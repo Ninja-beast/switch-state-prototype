@@ -8,7 +8,7 @@ public class SnmpQueryForm : Form
     private readonly TextBox _txtIp = new(){Width=180};
     private readonly TextBox _txtCommunity = new(){Width=120, Text="public"};
     private readonly TextBox _txtOid = new(){Width=260, Text="1.3.6.1.2.1.1.5.0"};
-    private readonly Button _btnRun = new(){Text="Kjør"};
+    private readonly Button _btnRun = new(){Text="run"};
     private readonly Button _btnClose = new(){Text="Lukk"};
     private readonly TextBox _txtResult = new(){Multiline=true, ReadOnly=true, ScrollBars=ScrollBars.Vertical, Dock=DockStyle.Fill, BackColor=Color.FromArgb(25,25,28), ForeColor=Color.LightGreen};
     private readonly Label _lblStatus = new(){AutoSize=true, ForeColor=Color.LightGray};
@@ -61,11 +61,11 @@ public class SnmpQueryForm : Form
         var oid = _txtOid.Text.Trim();
         if (string.IsNullOrWhiteSpace(ip) || string.IsNullOrWhiteSpace(comm) || string.IsNullOrWhiteSpace(oid))
         {
-            _lblStatus.Text = "Mangler felt"; _lblStatus.ForeColor = Color.OrangeRed; return;
+            _lblStatus.Text = "Missing field"; _lblStatus.ForeColor = Color.OrangeRed; return;
         }
         try
         {
-            _lblStatus.Text = "Spørr..."; _lblStatus.ForeColor = Color.LightGray;
+            _lblStatus.Text = "Ask..."; _lblStatus.ForeColor = Color.LightGray;
             var (ok,val,err) = await _monitor.QueryOidAsync(ip, comm, oid);
             if (ok)
             {

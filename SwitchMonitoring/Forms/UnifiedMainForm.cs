@@ -89,22 +89,22 @@ public class UnifiedMainForm : Form
 
     private void ActivateMode(string mode, bool log=false)
     {
-        if (log) AppLogger.Info("Aktiverer modus " + mode);
+        if (log) AppLogger.Info("Enables mode " + mode);
         if (mode == "SNMP")
         {
             _tabs.SelectedIndex = 0; // SNMP tab
-            _status.Text = "Modus: SNMP";
+            _status.Text = "Mode: SNMP";
         }
         else if (mode == "SFlow")
         {
             _tabs.SelectedIndex = 1; // sFlow tab
-            _status.Text = "Modus: sFlow";
+            _status.Text = "Mode: sFlow";
         }
         else // Auto
         {
             // initial preference: sFlow first (passive) - show sFlow tab
             _tabs.SelectedIndex = 1;
-            _status.Text = "Modus: Auto (starter sFlow, fallback SNMP etter timeout)";
+            _status.Text = "Mode: Auto (starts sFlow, fallback SNMP after timeout)";
         }
         _initialMode = mode;
     }
@@ -118,7 +118,7 @@ public class UnifiedMainForm : Form
         if (_sflowCollector.RawDatagramCount > 0) return;
         // fallback to SNMP
         _fallbackTimer.Stop();
-        AppLogger.Warn($"Ingen sFlow trafikk etter {_fallbackSeconds}s – faller tilbake til SNMP");
+        AppLogger.Warn($"No sFlow traffic after {_fallbackSeconds}s – falls back to SNMP");
         ActivateMode("SNMP", log:true);
         _modeCombo.SelectedItem = "SNMP";
         PersistMode("SNMP");
@@ -159,11 +159,11 @@ public class UnifiedMainForm : Form
             w.WriteEndObject();
             w.Flush();
             File.WriteAllBytes(path, ms.ToArray());
-            _status.Text = $"Lagret Mode={mode}";
+            _status.Text = $"Saved Mode={mode}";
         }
         catch (Exception ex)
         {
-            _status.Text = "Kunne ikke lagre Mode: " + ex.Message;
+            _status.Text = "Failed to save Mode: " + ex.Message;
         }
     }
 }

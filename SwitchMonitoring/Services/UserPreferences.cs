@@ -7,6 +7,11 @@ public class UserPreferences
     public int HistoricalWindowMinutes { get; set; } = 60; // default 1 hour
     public bool SmoothingEnabled { get; set; } = true;
     public bool FuturePaddingEnabled { get; set; } = false;
+    // New preferences for historical graph
+    public double EasingFactor { get; set; } = 0.25; // 0.15 / 0.25 / 0.40
+    public double DeltaHighlightThresholdPct { get; set; } = 25; // 10 / 25 / 50
+    public bool StepInterpolation { get; set; } = false;
+    public bool IncludeTotalArea { get; set; } = true;
 
     private static readonly string PrefsFile = Path.Combine(AppContext.BaseDirectory, "userprefs.json");
     private static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions { WriteIndented = true };

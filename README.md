@@ -1,18 +1,22 @@
 # SwitchMonitoring
 
-WinForms SNMP overvåkning i C# (.NET 8) som henter trafikk (bps) og utnyttelse (%) per interface.
+Windows (.NET 8) WinForms SNMP monitoring application that polls interface traffic (bits per second) and utilization (%), with live and historical visualization.
 
-## Funksjoner
-- WinForms GUI med mørkt tema
-- Manuell og automatisk oppdatering
-- Konfigurasjonsdialog (poll intervall, maks porter, ifX toggle, community)
-- Diagnose: Tester flere OIDs (sysDescr, sysName, ifNumber, ifDescr.1) og ping
-- Logger diagnostikk til `snmp-log.txt`
-- Bruker 64‑bit tellere (ifHCIn/OutOctets) når aktivert – fallback til 32‑bit
-- Beregner båndbredde (bps) og utnyttelse (%) mellom prøver (delta)
-- Håndterer counter wrap (32/64-bit)
+## Features
+- Dark themed WinForms UI
+- Configurable polling interval & interface limit
+- Dynamic preferred 64‑bit counters (ifHCIn/OutOctets) with fallback to 32‑bit
+- Counter wrap & reset detection (32-bit + 64-bit heuristics)
+- Live per-port graph with smoothing, headroom scaling, min/max hysteresis
+- Historical graph with interpolation (linear/step), easing, delta & percent change, trend arrows, threshold highlighting, future time axis padding (+50 years toggle)
+- In-memory + on-disk JSONL history (daily segments, automatic merge)
+- Clipboard export (single point / visible window) and CSV file export
+- User preferences persistence (window length, smoothing, future padding, interpolation mode, delta threshold, easing factor, show total area)
+- Multi-community test probing & port probe auto-detection
+- Structured logging with secret masking and rotation
+- SNMP diagnostic probe (system & interface OIDs)
 
-## Konfigurasjon (`appsettings.json`)
+## Configuration (`appsettings.json`)
 ```json
 {
   "PollIntervalSeconds": 30,
@@ -24,84 +28,60 @@ WinForms SNMP overvåkning i C# (.NET 8) som henter trafikk (bps) og utnyttelse 
   "UseIfXTable": true
 }
 ```
-Felter:
-- `PollIntervalSeconds`: Hvor ofte målinger tas
-- `Switches`: Liste over enheter
-- `MaxInterfaces`: Begrens antall porter som vises (ytelse / oversikt)
-- `UseIfXTable`: true = forsøk å hente 64-bit ifHC* tellere
+Fields:
+- `PollIntervalSeconds`: How often to poll counters
+- `Switches`: List of devices (community currently v2c)
+- `MaxInterfaces`: Limit number of interfaces collected (performance/clarity)
+- `UseIfXTable`: true = attempt 64-bit ifHC* counters first
 
-## Krav på switch
-- SNMP v2c aktivert
-- Community string samsvarer med filen
-- Tillatelse til å lese MIB-2 (interfaces, system, ifXTable)
+## Switch Requirements
+- SNMP v2c enabled
+- Community string matches configuration
+- Access to MIB-2 system, interfaces, and ifXTable branches
 
-## Bygg og kjør
-I rotmappen (der `.sln` ligger) kjør:
-
+## Build & Run
+From repository root:
 ```powershell
-# Gå inn i prosjektkatalog
 cd "SwitchMonitoring"
-
-# (valgfritt) Opprett løsning og legg til prosjekt
-# dotnet new sln -n SwitchMonitoring
-# dotnet sln add SwitchMonitoring.csproj
-
-# Gjenopprett pakker
 dotnet restore
-
-# Kjør
 dotnet run --project SwitchMonitoring/SwitchMonitoring.csproj
 ```
 
-## Utdata eksempel
+## Sample Output (textual log style)
 ```
 Switch: Core Switch (192.168.1.10)
   System Name: CORE-SW1
   Uptime: 12d 4h 33m
-  Antall interfaces (ifTable): 48
-     1: Gi1/0/1                  UP    1G   In:12.34Mbps Out: 1.22Mbps Util:  1.2%/  0.1%
-     2: Gi1/0/2                  UP    1G   (samler første prøve)
---------------------------------------------------------------
+  Interfaces (ifTable): 48
+     1: Gi1/0/1   UP 1G  In:12.34Mbps Out:1.22Mbps Util: 1.2% / 0.1%
+     2: Gi1/0/2   UP 1G  (collecting first sample)
+-------------------------------------------------------------
 ```
 
-## Feilsøking (Generelt)
-| Problem | Løsning |
-|---------|---------|
-| Tidsavbrudd / ingen svar | Sjekk VLAN / ACL / brannmur – UDP 161 må være åpen begge veier |
-| Ping feiler men SNMP virker | Noen enheter blokkerer ICMP – dette er kun en advarsel i GUI |
-| Kun ERR i tabellen | Feil community eller SNMP deaktivert på switchen |
-| 0 bps / alltid 0 % | Vent til andre måling (trenger to samples) eller interface er idle |
-| Util > 100 % | Interface speed rapporteres lavere enn reell (f.eks. auto-neg mismatch) |
-| Mangler høye porter | Øk `MaxInterfaces` eller sjekk ifNumber i Diagnose |
+## Troubleshooting
+| Problem | Explanation / Fix |
+|---------|--------------------|
+| Timeout / no response | Check VLAN/ACL/firewall – UDP 161 must be open both ways |
+| Ping fails but SNMP works | Device blocks ICMP – only a warning, safe to ignore |
+| All rows show ERR | Wrong community or SNMP disabled on device |
+| Always 0 bps / 0% | Need two samples; wait one interval or link is idle |
+| Utilization > 100% | Reported ifSpeed lower than actual (negotiation mismatch) |
+| Missing higher ports | Increase `MaxInterfaces` or inspect ifNumber via Diagnose |
 
-### Aruba / HP (ProCurve / ArubaOS-Switch) SNMP sjekkliste
-1. Aktiver SNMP v2c (CLI eksempel):
-  ```
-  configure terminal
-  snmp-server community public ro
-  write memory
-  ```
-2. Hvis du bruker annen community – endre i Konfigurasjon -> Endre…
-3. Kontroller at ACL ikke blokkerer klienten: `show snmp` / `show access-list`
-4. Bekreft at UDP 161 er åpen (fra PC: `Test SNMP` / `Diagnose` i GUI)
-5. Hvis bare sysDescr feiler: enhet kan ha rate-limit; vent og prøv igjen
-6. ifHC* (64-bit) finnes ikke på veldig gamle modeller – skru av ifX i konfig hvis alle porter viser 0 bps
-
-### Tolk Diagnose-resultat
-Eksempel:
+### Diagnose Interpretation Example
 ```
-Ping: FEIL
-sysDescr (1.3.6.1.2.1.1.1.0): OK -> Aruba JL123A ...
-sysName (1.3.6.1.2.1.1.5.0): OK -> CORE-SW1
-ifNumber (1.3.6.1.2.1.2.1.0): OK -> 52
-ifDescr.1 (1.3.6.1.2.1.2.2.1.2.1): FEIL -> NoSuchInstance
+Ping: FAIL
+sysDescr (...): OK -> Aruba JL123A ...
+sysName (...): OK -> CORE-SW1
+ifNumber (...): OK -> 52
+ifDescr.1 (...): FAIL -> NoSuchInstance
 ```
-Forklaring:
-- Ping FEIL men SNMP OK: ICMP blokkert – ufarlig.
-- ifDescr.1 feilet: Port 1 finnes ikke (kan starte på 49 for stack) – ignorer.
+Notes:
+- Ping FAIL but SNMP OK: ICMP blocked.
+- ifDescr.1 fail: interface 1 may not exist (stacked base index offset) – ignore.
 
-### Vanlige Aruba OIDs
-| Beskrivelse | OID |
+### Common OIDs
+| Description | OID |
 |-------------|-----|
 | sysDescr | 1.3.6.1.2.1.1.1.0 |
 | sysObjectID | 1.3.6.1.2.1.1.2.0 |
@@ -121,15 +101,15 @@ Forklaring:
 | ifOutOctets (idx N) | 1.3.6.1.2.1.2.2.1.16.N |
 | ifHCInOctets (idx N) | 1.3.6.1.2.1.31.1.1.1.6.N |
 | ifHCOutOctets (idx N) | 1.3.6.1.2.1.31.1.1.1.10.N |
-| Custom47196 (enterprise) | 1.3.6.1.4.1.47196.4.1.1.3.17 |
+| Custom47196 (example enterprise) | 1.3.6.1.4.1.47196.4.1.1.3.17 |
 
-## Videre forbedringer (idéer)
-- Multi-switch visning i samme grid
-- Historikk / graf (rolling in-memory eller SQLite)
-- Eksport (Prometheus / InfluxDB)
-- SNMP v3 (auth/priv)
-- Alarmregler (farge ved > 80 %)
-- CSV / JSON eksport av siste måling
+## Roadmap Ideas
+- SNMPv3 (auth/privacy) full support
+- Alert rules (color/notification over thresholds)
+- Pan/zoom & multi-series overlay exports
+- Prometheus / InfluxDB exporter
+- Annotation markers for wraps/resets
+- Pluggable output (file / REST)
 
-## Lisens
-MIT (kan tilpasses etter behov)
+## License
+MIT

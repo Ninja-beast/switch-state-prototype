@@ -3,7 +3,7 @@ using SwitchMonitoring.Models;
 using SwitchMonitoring.Services;
 using SwitchMonitoring.Forms;
 
-// Enkle WinForms oppstart uten generert designer
+// Simple WinForms startup without designer
 ApplicationConfiguration.Initialize();
 
 // Global exception handling
@@ -28,15 +28,15 @@ TaskScheduler.UnobservedTaskException += (s, e) =>
 try
 {
 
-// Last brukerpreferanser tidlig
+// Load user preferences early
 UserPreferences.Load();
 
 var configPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
-AppLogger.Info("Starter applikasjon");
+AppLogger.Info("Starting application");
 if (!File.Exists(configPath))
 {
-    AppLogger.Error("Mangler appsettings.json");
-    MessageBox.Show("Finner ikke appsettings.json", "Feil", MessageBoxButtons.OK, MessageBoxIcon.Error);
+    AppLogger.Error("Missing appsettings.json");
+    MessageBox.Show("Cannot find appsettings.json", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
     return;
 }
 var json = File.ReadAllText(configPath);
@@ -74,7 +74,7 @@ if (root.TryGetProperty("SnmpV3Users", out var v3Arr) && v3Arr.ValueKind==JsonVa
         catch { }
     }
 }
-// Porter som skal auto-probes dersom switch ikke har en spesifikk SnmpPort
+// Ports to auto-probe if a switch does not specify an explicit SnmpPort
 var probePorts = new List<int>();
 if (root.TryGetProperty("SnmpProbePorts", out var spp) && spp.ValueKind == JsonValueKind.Array)
 {
@@ -126,9 +126,9 @@ if (root.TryGetProperty("Switches", out var swArr2) && swArr2.ValueKind == JsonV
     }
 }
 var monitor2 = new SwitchMonitor(pollInterval, maxIf2, useIfX2, switchList2, snmpTimeout2, snmpRetries2, showSnmpErr, defaultSnmpPort, probePorts, probeLogEnabled, probeLogFile);
-// Send inn SNMPv3 brukere dersom definert
+// Provide SNMPv3 users if defined
 if (v3Users.Count > 0) monitor2.SetV3Users(v3Users.Values);
-// CommunitiesToTest (multi-community B) fra config
+// CommunitiesToTest (multi-community) from config
 if (root.TryGetProperty("CommunitiesToTest", out var ctest) && ctest.ValueKind==JsonValueKind.Array)
 {
     var comms = new List<string>();
@@ -136,11 +136,11 @@ if (root.TryGetProperty("CommunitiesToTest", out var ctest) && ctest.ValueKind==
         if (ce.ValueKind==JsonValueKind.String) comms.Add(ce.GetString()!);
     if (comms.Count > 0) SwitchMonitor.SetCommunitiesToTest(comms);
 }
-AppLogger.Info($"Starter SNMP form Switches={switchList2.Count}");
+AppLogger.Info($"Starting SNMP form Switches={switchList2.Count}");
 Application.Run(new MainForm(monitor2, pollInterval, combined));
 }
 catch (Exception ex)
 {
-    AppLogger.Error("Fatal startfeil: " + ex);
-    MessageBox.Show("Fatal feil ved oppstart: " + ex.Message, "Feil", MessageBoxButtons.OK, MessageBoxIcon.Error);
+    AppLogger.Error("Fatal startup error: " + ex);
+    MessageBox.Show("Fatal error during startup: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
 }

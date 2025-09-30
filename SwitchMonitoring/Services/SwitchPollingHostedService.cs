@@ -1,1 +1,1 @@
-// Fil beholdt tom midlertidig for å fjerne tidligere web-hosted service.
+// File kept empty temporarily to remove previous web-hosted service.

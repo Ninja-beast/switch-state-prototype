@@ -10,13 +10,13 @@ public class PortGraphForm : Form
     private readonly Panel _canvas;
     private readonly Label _legend;
     private double _lastMaxY = 0;
-    private const double ScaleGrowFactor = 1.05; // slightly smaller hysteresis expansion
-    private const double ScaleShrinkThreshold = 0.60; // shrink when current peak < threshold * last
-    private const double StaticHeadroomFactor = 1.30; // always add 30% headroom to reduce "zoomed in" look
+    private const double ScaleGrowFactor = 1.05; // hysteresis expansion factor
+    private const double ScaleShrinkThreshold = 0.60; // shrink when current peak < threshold * previous
+    private const double StaticHeadroomFactor = 1.30; // fixed headroom to reduce cramped graph
     private bool _showTotal = true;
     private bool _smoothing = false;
     private readonly ContextMenuStrip _ctx;
-    // (Hover fjernet etter ønske)
+    // (Hover removed per user request)
 
     public PortGraphForm(string switchName, string switchIp, int ifIndex, int maxPoints = 240)
     {
@@ -61,7 +61,7 @@ public class PortGraphForm : Form
         g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
         if (_points.Count < 2)
         {
-            g.DrawString("For lite data...", Font, Brushes.Gray, 10, 10);
+            g.DrawString("Too little data...", Font, Brushes.Gray, 10, 10);
             return;
         }
     var arr = _points.ToArray();
@@ -72,7 +72,7 @@ public class PortGraphForm : Form
         // Compute total and find max across total also
         double observedMax = arr.Select(p => p.inBps + p.outBps).Concat(new[]{arr.Max(p=>p.inBps), arr.Max(p=>p.outBps)}).Max();
         if (observedMax <= 0) observedMax = 1;
-        // Hysterese: justér _lastMaxY
+    // Hysteresis adjust _lastMaxY
         if (_lastMaxY <= 0) _lastMaxY = observedMax;
         if (observedMax > _lastMaxY) _lastMaxY = observedMax * ScaleGrowFactor;
         else if (observedMax < _lastMaxY * ScaleShrinkThreshold)

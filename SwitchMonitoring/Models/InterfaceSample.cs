@@ -9,9 +9,9 @@ public class InterfaceSample
     public ulong InOctets { get; set; }
     public ulong OutOctets { get; set; }
     public DateTime Timestamp { get; set; }
-    // Kalkulerte felt for sFlow (bps mellom to counter samples)
+    // Calculated fields for sFlow (bps between two counter samples)
     public double RateInBps { get; set; }
     public double RateOutBps { get; set; }
-    // Valgfri visning av hastighet (hvis vi senere henter ifSpeed)
+    // Optional display of speed (if we later fetch ifSpeed)
     public string SpeedLabel { get; set; } = "-";
 }

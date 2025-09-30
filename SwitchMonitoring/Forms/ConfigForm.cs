@@ -91,11 +91,11 @@ public class ConfigForm : Form
 
     private async Task DoTestAsync()
     {
-        _lblResult.Text = "Tester...";
+    _lblResult.Text = "Testing...";
         _lblResult.ForeColor = Color.LightGray;
         var (ok,msg) = await _monitor.TestSnmpAsync(_txtIp.Text.Trim(), _txtCommunity.Text.Trim());
         _lblResult.Text = msg;
-        _lblResult.ForeColor = ok ? Color.LightGreen : Color.OrangeRed;
+    _lblResult.ForeColor = ok ? Color.LightGreen : Color.OrangeRed;
     }
 
     private void SaveAndClose()

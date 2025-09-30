@@ -14,7 +14,7 @@ public class InterfaceSnapshot
     public double UtilOutPercent { get; set; }
     public string SpeedLabel { get; set; } = string.Empty;
         public string Id => $"{SwitchName}-{IfIndex}";
-        // Opprinnelig felter (kan beholdes for bakoverkompabilitet hvis brukt andre steder)
+    // Original fields (can be kept for backward compatibility if used elsewhere)
         public double? UtilizationInPercent
         {
             get => UtilInPercent;
@@ -30,6 +30,6 @@ public class InterfaceSnapshot
             get => Timestamp;
             set => Timestamp = value;
         }
-        public string Speed { get; set; } = string.Empty; // rå ifSpeed verdi
-        public int? ResolvedPort { get; set; } // SNMP-port brukt for denne raden
+    public string Speed { get; set; } = string.Empty; // raw ifSpeed value
+    public int? ResolvedPort { get; set; } // SNMP port used for this row
     }

@@ -26,11 +26,7 @@ public class MainForm : Form
         _monitor = monitor;
         _pollSeconds = pollSeconds;
         _combined = combined;
-<<<<<<< HEAD
-    Text = "Switch Traffic";
-=======
         Text = "Switch Traffic";
->>>>>>> 44b96967150e9016dfd2f26a6f28ea9531384fb2
         Width = 1200;
         Height = 700;
         BackColor = Color.FromArgb(30,30,34);
@@ -74,11 +70,7 @@ public class MainForm : Form
         // Manual refresh button
         _refreshButton = new Button
         {
-<<<<<<< HEAD
-            Text = "Refresh now",
-=======
-            Text = "Update now",
->>>>>>> 44b96967150e9016dfd2f26a6f28ea9531384fb2
+        Text = "Refresh now",
             Dock = DockStyle.Top,
             Height = 30,
             FlatStyle = FlatStyle.Flat,
@@ -87,8 +79,7 @@ public class MainForm : Form
         };
         _refreshButton.FlatAppearance.BorderSize = 0;
         _refreshButton.Click += async (s,e) => await ManualRefreshAsync();
-
-<<<<<<< HEAD
+    // Menu bar
     _menu = new MenuStrip{Dock=DockStyle.Top, BackColor=Color.FromArgb(45,45,50), ForeColor=Color.White};
     var cfgItem = new ToolStripMenuItem("Configuration");
     var editItem = new ToolStripMenuItem("Edit...");
@@ -98,7 +89,7 @@ public class MainForm : Form
     var snmpPingItem = new ToolStripMenuItem("SNMP Ping...");
     var listIfItem = new ToolStripMenuItem("List interfaces...");
     var graphItem = new ToolStripMenuItem("Live graph (selected port)");
-    // Removed standalone SNMP Query test window (file removed)
+    // Removed standalone SNMP Query test window
     cfgItem.DropDownItems.Add(editItem);
     cfgItem.DropDownItems.Add(testItem);
     cfgItem.DropDownItems.Add(new ToolStripSeparator());
@@ -109,49 +100,7 @@ public class MainForm : Form
     cfgItem.DropDownItems.Add(commTestItem);
     cfgItem.DropDownItems.Add(new ToolStripSeparator());
     cfgItem.DropDownItems.Add(graphItem);
-    // queryItem removed
     _menu.Items.Add(cfgItem);
-
-    editItem.Click += async (s,e) => await ShowConfigAsync();
-    testItem.Click += async (s,e) => await TestCurrentAsync();
-    diagItem.Click += async (s,e) => await DiagnoseAsync();
-    commTestItem.Click += async (s,e) => await TestCommunitiesAsync();
-    snmpPingItem.Click += async (s,e) => await SnmpPingAsync();
-    listIfItem.Click += async (s,e) => await ListInterfacesAsync();
-    graphItem.Click += (s,e) => OpenGraphForSelected();
-    // History top-level menu
-    var histMenu = new ToolStripMenuItem("History");
-    var histOpenItem = new ToolStripMenuItem("History graph (selected port)...");
-    histOpenItem.Click += (s,e) => OpenHistoricalGraphForSelected();
-    histMenu.DropDownItems.Add(histOpenItem);
-    _menu.Items.Add(histMenu);
-    // queryItem.Click fjernet
-=======
-        // Menu bar
-        _menu = new MenuStrip{Dock=DockStyle.Top, BackColor=Color.FromArgb(45,45,50), ForeColor=Color.White};
-        var cfgItem = new ToolStripMenuItem("Configuration");
-        var editItem = new ToolStripMenuItem("Edit...");
-        var testItem = new ToolStripMenuItem("Test SNMP");
-        var diagItem = new ToolStripMenuItem("Diagnosis...");
-        var commTestItem = new ToolStripMenuItem("Test communities...");
-        var snmpPingItem = new ToolStripMenuItem("SNMP Ping...");
-        var listIfItem = new ToolStripMenuItem("List ports...");
-        var graphItem = new ToolStripMenuItem("Graph for selected port");
-        // Removed SNMP Query test window
-
-        // Add menu items
-        cfgItem.DropDownItems.Add(editItem);
-        cfgItem.DropDownItems.Add(testItem);
-        cfgItem.DropDownItems.Add(new ToolStripSeparator());
-        cfgItem.DropDownItems.Add(snmpPingItem);
-        cfgItem.DropDownItems.Add(listIfItem);
-        cfgItem.DropDownItems.Add(new ToolStripSeparator());
-        cfgItem.DropDownItems.Add(diagItem);
-        cfgItem.DropDownItems.Add(commTestItem);
-        cfgItem.DropDownItems.Add(new ToolStripSeparator());
-        cfgItem.DropDownItems.Add(graphItem);
-        _menu.Items.Add(cfgItem);
->>>>>>> 44b96967150e9016dfd2f26a6f28ea9531384fb2
 
         // Hook up menu actions
         editItem.Click += async (s,e) => await ShowConfigAsync();
@@ -162,12 +111,12 @@ public class MainForm : Form
         listIfItem.Click += async (s,e) => await ListInterfacesAsync();
         graphItem.Click += (s,e) => OpenGraphForSelected();
 
-        // History menu
-        var histMenu = new ToolStripMenuItem("History");
-        var histOpenItem = new ToolStripMenuItem("History graph of selected port...");
-        histOpenItem.Click += (s,e) => OpenHistoricalGraphForSelected();
-        histMenu.DropDownItems.Add(histOpenItem);
-        _menu.Items.Add(histMenu);
+    // History menu
+    var histMenu = new ToolStripMenuItem("History");
+    var histOpenItem = new ToolStripMenuItem("History graph (selected port)...");
+    histOpenItem.Click += (s,e) => OpenHistoricalGraphForSelected();
+    histMenu.DropDownItems.Add(histOpenItem);
+    _menu.Items.Add(histMenu);
 
         // Add controls to the form
         Controls.Add(_grid);
@@ -249,20 +198,12 @@ public class MainForm : Form
     private async Task RefreshDataAsync(bool manual = false)
     {
         if (_busy) return;
-<<<<<<< HEAD
     try { _busy = true; _refreshButton.Enabled = false; _statusLabel.Text = "Refreshing..."; } catch { }
-=======
-        try { _busy = true; _refreshButton.Enabled = false; _statusLabel.Text = "Updating..."; } catch { }
->>>>>>> 44b96967150e9016dfd2f26a6f28ea9531384fb2
         try
         {
             var snaps = await _monitor.PollOnceAsync();
             _lastSnapshots = snaps;
-<<<<<<< HEAD
             // Update open live graph windows
-=======
-            // Update open graph windows
->>>>>>> 44b96967150e9016dfd2f26a6f28ea9531384fb2
             foreach (Form f in Application.OpenForms)
             {
                 if (f is PortGraphForm pg)
@@ -274,19 +215,11 @@ public class MainForm : Form
             }
             BindGrid(snaps);
             var errors = snaps.Count(s => s.Status == "ERR");
-<<<<<<< HEAD
             _statusLabel.Text = $"Last {(manual?"manual":"auto")} refresh: {DateTime.Now:HH:mm:ss}  Rows: {snaps.Count}  Errors: {errors}";
             if (snaps.Count == 0)
             {
                 _statusLabel.Text += " | No data – check Diagnostics";
-                AppLogger.Warn("Poll ga 0 snapshots");
-=======
-            _statusLabel.Text = $"Last {(manual?"manual":"auto")} Update: {DateTime.Now:HH:mm:ss}  Rows: {snaps.Count}  Error: {errors}";
-            if (snaps.Count == 0)
-            {
-                _statusLabel.Text += " | No data – check Diagnosis";
                 AppLogger.Warn("Poll returned 0 snapshots");
->>>>>>> 44b96967150e9016dfd2f26a6f28ea9531384fb2
             }
         }
         catch (Exception ex)
@@ -332,11 +265,7 @@ public class MainForm : Form
         if (_busy) return;
         var sw = _monitor.GetSwitches().FirstOrDefault();
         if (sw == null) return;
-<<<<<<< HEAD
     _statusLabel.Text = "Testing SNMP...";
-=======
-        _statusLabel.Text = "Testing SNMP...";
->>>>>>> 44b96967150e9016dfd2f26a6f28ea9531384fb2
         var (ok,msg) = await _monitor.TestSnmpAsync(sw.IPAddress, sw.Community);
         _statusLabel.Text = msg;
     }
@@ -348,32 +277,18 @@ public class MainForm : Form
         var sw = _monitor.GetSwitches().FirstOrDefault();
         if (sw == null)
         {
-<<<<<<< HEAD
             MessageBox.Show(this, "No switch is configured.", "Diagnostics", MessageBoxButtons.OK, MessageBoxIcon.Information);
-=======
-            MessageBox.Show(this, "No switch is configured.", "Diagnosis", MessageBoxButtons.OK, MessageBoxIcon.Information);
->>>>>>> 44b96967150e9016dfd2f26a6f28ea9531384fb2
             return;
         }
         try
         {
-<<<<<<< HEAD
             _statusLabel.Text = "Running diagnostics...";
             var text = await _monitor.TestDiagnosticAsync(sw.IPAddress, sw.Community);
             _statusLabel.Text = "Diagnostics completed";
-            // Vis i eget vindu for bedre lesbarhet
-            using var diag = new Form
-            {
-                Text = $"Diagnostics - {sw.Name} ({sw.IPAddress})",
-=======
-            _statusLabel.Text = "Running diagnosis...";
-            var text = await _monitor.TestDiagnosticAsync(sw.IPAddress, sw.Community);
-            _statusLabel.Text = "Diagnosis complete";
             // Show in its own window for better readability
             using var diag = new Form
             {
-                Text = $"Diagnosis - {sw.Name} ({sw.IPAddress})",
->>>>>>> 44b96967150e9016dfd2f26a6f28ea9531384fb2
+                Text = $"Diagnostics - {sw.Name} ({sw.IPAddress})",
                 Width = 620,
                 Height = 480,
                 StartPosition = FormStartPosition.CenterParent,
@@ -396,13 +311,8 @@ public class MainForm : Form
         }
         catch (Exception ex)
         {
-<<<<<<< HEAD
             _statusLabel.Text = "Diagnostics failed";
             MessageBox.Show(this, ex.Message, "Diagnostics error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-=======
-            _statusLabel.Text = "Diagnosis failed";
-            MessageBox.Show(this, ex.Message, "Diagnosis error", MessageBoxButtons.OK, MessageBoxIcon.Error);
->>>>>>> 44b96967150e9016dfd2f26a6f28ea9531384fb2
         }
     }
 
@@ -479,11 +389,7 @@ public class MainForm : Form
         }
         catch (Exception ex)
         {
-<<<<<<< HEAD
             _statusLabel.Text = "Port list error";
-=======
-            _statusLabel.Text = "Error with port list";
->>>>>>> 44b96967150e9016dfd2f26a6f28ea9531384fb2
             MessageBox.Show(this, ex.Message, "Port list error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
@@ -495,11 +401,7 @@ public class MainForm : Form
         var sw = _monitor.GetSwitches().FirstOrDefault();
         if (sw == null)
         {
-<<<<<<< HEAD
             MessageBox.Show(this, "No switch is configured.", "Community test", MessageBoxButtons.OK, MessageBoxIcon.Information);
-=======
-            MessageBox.Show(this, "No switch is configured..", "Community test", MessageBoxButtons.OK, MessageBoxIcon.Information);
->>>>>>> 44b96967150e9016dfd2f26a6f28ea9531384fb2
             return;
         }
         try
@@ -660,17 +562,10 @@ public class MainForm : Form
         var swIp = row.Cells[1].Value?.ToString() ?? "?";
         if (!int.TryParse(row.Cells[2].Value?.ToString(), out var ifIndex) || ifIndex <= 0)
         {
-<<<<<<< HEAD
             MessageBox.Show(this, "Selected row is missing a valid ifIndex", "Graph", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
         // Find existing graph window if already open
-=======
-            MessageBox.Show(this, "Row lacks valid ifIndex", "Graph", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            return;
-        }
-        // Find existing graph window
->>>>>>> 44b96967150e9016dfd2f26a6f28ea9531384fb2
         foreach (Form f in Application.OpenForms)
         {
             if (f is PortGraphForm pg && pg.Matches(swIp, ifIndex))
@@ -680,11 +575,7 @@ public class MainForm : Form
             }
         }
         var graph = new PortGraphForm(swName, swIp, ifIndex);
-<<<<<<< HEAD
-        // Set initial sample if we have it in the snapshot list
-=======
-        // Set initial sample if available
->>>>>>> 44b96967150e9016dfd2f26a6f28ea9531384fb2
+    // Set initial sample if we have it in the snapshot list
         var snap = _lastSnapshots.FirstOrDefault(s => s.SwitchIp == swIp && s.IfIndex == ifIndex);
         if (snap != null)
             graph.AddSample(DateTime.Now, snap.InBps, snap.OutBps);
@@ -701,19 +592,11 @@ public class MainForm : Form
         var swIp = row.Cells[1].Value?.ToString() ?? "?";
         if (!int.TryParse(row.Cells[2].Value?.ToString(), out var ifIndex) || ifIndex <= 0)
         {
-<<<<<<< HEAD
             MessageBox.Show(this, "Selected row is missing a valid ifIndex", "History", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
         var ifName = row.Cells[3].Value?.ToString() ?? $"if{ifIndex}";
         // Check existing historical graph window
-=======
-            MessageBox.Show(this, "Row lacks valid ifIndex", "History", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            return;
-        }
-        var ifName = row.Cells[3].Value?.ToString() ?? $"if{ifIndex}";
-        // Check for existing historical graph window
->>>>>>> 44b96967150e9016dfd2f26a6f28ea9531384fb2
         foreach (Form f in Application.OpenForms)
         {
             if (f is HistoricalGraphForm hg && hg.Text.Contains(swName) && hg.Text.Contains($"ifIndex={ifIndex}"))
